@@ -8,6 +8,10 @@ import (
 )
 
 type (
+	// The World is the container for all ECS data.
+	// It stores the entities and their components, does queries and runs systems.
+	//
+	// --flecs.dev
 	World struct {
 		idManager
 		zero *archetype
@@ -19,7 +23,21 @@ type (
 		// internal Components
 		NameComp Component
 	}
-	Entity    uint64
+
+	// An Entity is a unique thing in the world, and is represented by a 64-bit id.
+	// Entities can be created and deleted.
+	// If an entity is deleted, it is no longer considered "alive".
+	//
+	// A world can contain up to 4 billion alive entities.
+	// Entity identifiers contain a few bits that make it possible to check whether an entity is alive or not.
+	//
+	// --flecs.dev
+	Entity uint64
+
+	// A Component is a type of which instances can be added and removed to entities.
+	// Each component can be added only once to an entity.
+	//
+	// --flecs.dev
 	Component struct{ Entity }
 
 	idManager struct {
@@ -50,10 +68,9 @@ type (
 		len() int
 	}
 	columnImpl[C any] []C
-
-	// general components
 )
 
+// NewWorld creates a new empty World, with the default components.
 func NewWorld() (w *World) {
 	w = &World{
 		entities:   make(map[Entity]*entityRecord),
@@ -68,6 +85,7 @@ func NewWorld() (w *World) {
 	return
 }
 
+// NewEntity creates a new Entity in the World, without any components.
 func NewEntity(w *World) (e Entity) {
 	e = Entity(w.genID())
 	r := new(entityRecord)
@@ -78,18 +96,22 @@ func NewEntity(w *World) (e Entity) {
 	return
 }
 
+// NewNamedEntity is the same as NewEntity, but automatically sets a name component.
 func NewNamedEntity(w *World, name string) (e Entity) {
 	e = NewEntity(w)
 	Set(w, e, w.NameComp, name)
 	return
 }
 
+// NewComponent creates a new Component in the World.
+// The data type associated with the Component will be bind when the first data is set.
 func NewComponent(w *World) (c Component) {
 	c = Component{NewEntity(w)}
 	w.components[c] = make(map[*archetype]int)
 	return
 }
 
+// NewNamedComponent is the same as NewComponent, but automatically sets a name component.
 func NewNamedComponent(w *World, name string) (c Component) {
 	c = NewComponent(w)
 	Set(w, c.Entity, w.NameComp, name)
@@ -110,6 +132,12 @@ func newArchetype(w *World, t types) (a *archetype) {
 	return
 }
 
+// Set sets the data of a Component of an Entity.
+//
+// If the Entity already has the Component, the data will be overridden.
+// If the Entity doesn't have the Component, the Component will be added.
+//
+// This function panics if the type of data doesn't match others of the same Component.
 func Set[C any](w *World, e Entity, c Component, data C) {
 	rec := w.entities[e]
 	// If the archetype of e already contains c.
@@ -140,8 +168,8 @@ func Set[C any](w *World, e Entity, c Component, data C) {
 	rec.at.records.swapDelete(rec.row)
 	w.entities[e].row = rec.row
 	target.comps[w.components[c][target]].(*columnImpl[C]).append(data)
+	// Move other components
 	for _, t := range rec.at.types {
-		// Move other components
 		idx := w.components[t.Component]
 		src := rec.at.comps[idx[rec.at]]
 		target.comps[idx[target]].appendFrom(src, rec.row)
@@ -152,6 +180,8 @@ func Set[C any](w *World, e Entity, c Component, data C) {
 	rec.row = row
 }
 
+// Remove removes the Component of an Entity.
+// If the Entity doesn't have the Component, nothing will happen.
 func Remove(w *World, e Entity, c Component) {
 	rec := w.entities[e]
 	col, ok := w.components[c][rec.at]
@@ -189,6 +219,8 @@ func Remove(w *World, e Entity, c Component) {
 	rec.row = row
 }
 
+// Get gets the data of a Component of an Entity.
+// If the Entity doesn't have the Component, nil will be returned.
 func Get[C any](w *World, e Entity, c Component) (data *C) {
 	rec := w.entities[e]
 	if column, ok := w.components[c][rec.at]; ok {
@@ -204,7 +236,7 @@ func (i *idManager) genID() (id uint64) {
 }
 
 func (t types) sortHash() uint64 {
-	// sort the components list
+	// sort the component list
 	sort.Slice(t, func(i, j int) bool {
 		return t[i].Component.Entity < t[i].Component.Entity
 	})
