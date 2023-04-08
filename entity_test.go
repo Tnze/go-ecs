@@ -2,6 +2,7 @@ package ecs_test
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/Tnze/go-ecs"
 )
@@ -56,4 +57,30 @@ func ExampleEntity_basic() {
 	// [Position, Walking, ecs.Name]
 	// Bob: {20.000000, 30.000000}
 	// Alice: {10.000000, 20.000000}
+}
+
+func TestEntity_basic(t *testing.T) {
+	w := ecs.NewWorld()
+	c1 := ecs.NewComponent(w)
+	c2 := ecs.NewComponent(w)
+	e1 := ecs.NewNamedEntity(w, "E1")
+	e2 := ecs.NewNamedEntity(w, "E2")
+	e3 := ecs.NewNamedEntity(w, "E3")
+	ecs.Set(w, e1, c1, "E1-C1")
+	ecs.Set(w, e2, c1, "E2-C1")
+	ecs.Set(w, e2, c2, "E2-C2")
+	ecs.Set(w, e3, c2, "E2-C2")
+
+	ecs.TermIter[string](w, c1, func(entities []ecs.Entity, s []string) {
+		for i, e := range entities {
+			entityName := ecs.Get[string](w, e, w.NameComp)
+			fmt.Printf("%s: %s\n", *entityName, s[i])
+		}
+	})
+	ecs.TermIter[string](w, c2, func(entities []ecs.Entity, s []string) {
+		for i, e := range entities {
+			entityName := ecs.Get[string](w, e, w.NameComp)
+			fmt.Printf("%s: %s\n", *entityName, s[i])
+		}
+	})
 }
