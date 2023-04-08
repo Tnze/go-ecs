@@ -4,7 +4,6 @@ import (
 	"hash/maphash"
 	"reflect"
 	"sort"
-	"strings"
 	"unsafe"
 )
 
@@ -13,9 +12,12 @@ type (
 		idManager
 		zero *archetype
 
-		entities   map[Entity]entityRecord
+		entities   map[Entity]*entityRecord
 		archetypes map[uint64]*archetype
 		components map[Component]map[*archetype]int
+
+		// internal Components
+		NameComp Component
 	}
 	Entity    uint64
 	Component struct{ Entity }
@@ -29,42 +31,56 @@ type (
 	}
 	archetype struct {
 		types
-		comps []store
-		edges map[Component]archetypeEdge
+		entities columnImpl[Entity]
+		records  columnImpl[*entityRecord]
+		comps    []column
+		edges    map[Component]archetypeEdge
 	}
 	types         []componentMeta
 	componentMeta struct {
 		Component
-		name      string
-		storeType reflect.Type
+		columnType reflect.Type
 	}
 	archetypeEdge struct {
 		add, del *archetype
 	}
-	store interface {
-		appendFrom(other store, column int)
+	column interface {
+		appendFrom(other column, column int)
 		swapDelete(i int)
 		len() int
 	}
-	storeImpl[C any] []C
+	columnImpl[C any] []C
+
+	// general components
 )
 
 func NewWorld() (w *World) {
 	w = &World{
-		entities:   make(map[Entity]entityRecord),
+		entities:   make(map[Entity]*entityRecord),
 		archetypes: make(map[uint64]*archetype),
 		components: make(map[Component]map[*archetype]int),
 	}
 	w.zero = newArchetype(w, nil)
+
+	// general components
+	w.NameComp = NewComponent(w)
+	Set(w, w.NameComp.Entity, w.NameComp, "ecs.Name")
 	return
 }
 
 func NewEntity(w *World) (e Entity) {
 	e = Entity(w.genID())
-	w.entities[e] = entityRecord{
-		at:  w.zero,
-		row: -1,
-	}
+	r := new(entityRecord)
+	r.at = w.zero
+	r.row = w.zero.entities.append(e)
+	w.zero.records.append(r)
+	w.entities[e] = r
+	return
+}
+
+func NewNamedEntity(w *World, name string) (e Entity) {
+	e = NewEntity(w)
+	Set(w, e, w.NameComp, name)
 	return
 }
 
@@ -74,14 +90,20 @@ func NewComponent(w *World) (c Component) {
 	return
 }
 
+func NewNamedComponent(w *World, name string) (c Component) {
+	c = NewComponent(w)
+	Set(w, c.Entity, w.NameComp, name)
+	return
+}
+
 func newArchetype(w *World, t types) (a *archetype) {
 	a = &archetype{
 		types: t,
-		comps: make([]store, len(t)),
+		comps: make([]column, len(t)),
 		edges: make(map[Component]archetypeEdge),
 	}
 	for i, v := range t {
-		a.comps[i] = reflect.New(v.storeType.Elem()).Interface().(store)
+		a.comps[i] = reflect.New(v.columnType.Elem()).Interface().(column)
 		w.components[v.Component][a] = i
 	}
 	w.archetypes[t.sortHash()] = a
@@ -92,8 +114,8 @@ func Set[C any](w *World, e Entity, c Component, data C) {
 	rec := w.entities[e]
 	// If the archetype of e already contains c.
 	// Override the data and return.
-	if column, ok := w.components[c][rec.at]; ok {
-		(*rec.at.comps[column].(*storeImpl[C]))[rec.row] = data
+	if col, ok := w.components[c][rec.at]; ok {
+		(*rec.at.comps[col].(*columnImpl[C]))[rec.row] = data
 		return
 	}
 	// Lookup archetypeEdge for shortcuts
@@ -101,24 +123,30 @@ func Set[C any](w *World, e Entity, c Component, data C) {
 	target := edge.add
 	if target == nil {
 		// We don't have shortcuts yet. Use the hash way.
-		var tmpC *C
-		var tmpS *storeImpl[C]
-		newTypes := rec.at.types.copyAppend(c, reflect.TypeOf(tmpS), reflect.TypeOf(tmpC).Elem().Name())
+		var tmpS *columnImpl[C]
+		newTypes := rec.at.types.copyAppend(c, reflect.TypeOf(tmpS))
 		target = newArchetype(w, newTypes)
 		// Save to the shortcuts
 		edge.add = target
 		rec.at.edges[c] = edge
 	}
 	// Move entity to the new archetype
-	row := target.comps[w.components[c][target]].(*storeImpl[C]).append(data)
+	target.entities.append(e)
+	target.records.append(rec)
+	rec.at.entities.swapDelete(rec.row)
+	rec.at.records.swapDelete(rec.row)
+	w.entities[e].row = rec.row
+	row := target.comps[w.components[c][target]].(*columnImpl[C]).append(data)
 	for _, t := range rec.at.types {
-		// copy
+		// Move other components
 		idx := w.components[t.Component]
 		src := rec.at.comps[idx[rec.at]]
 		target.comps[idx[target]].appendFrom(src, rec.row)
+		src.swapDelete(rec.row)
 	}
 
-	w.entities[e] = entityRecord{at: target, row: row}
+	rec.at = target
+	rec.row = row
 }
 
 func Remove[C any](w *World, e Entity, c Component) {}
@@ -126,26 +154,9 @@ func Remove[C any](w *World, e Entity, c Component) {}
 func Get[C any](w *World, e Entity, c Component) (data *C) {
 	rec := w.entities[e]
 	if column, ok := w.components[c][rec.at]; ok {
-		return &(*rec.at.comps[column].(*storeImpl[C]))[rec.row]
+		return &(*rec.at.comps[column].(*columnImpl[C]))[rec.row]
 	}
 	return nil
-}
-
-func Type(w *World, e Entity) string {
-	var sb strings.Builder
-	rec := w.entities[e]
-	compNames := make([]string, len(rec.at.types))
-	for i, v := range rec.at.types {
-		compNames[i] = v.name
-	}
-	sort.Strings(compNames)
-	for i, v := range compNames {
-		if i != 0 {
-			sb.WriteString(", ")
-		}
-		sb.WriteString(v)
-	}
-	return sb.String()
 }
 
 func (i *idManager) genID() (id uint64) {
@@ -167,32 +178,31 @@ func (t types) sortHash() uint64 {
 	return h.Sum64()
 }
 
-func (t types) copyAppend(c Component, storeType reflect.Type, name string) (newTypes types) {
+func (t types) copyAppend(c Component, storeType reflect.Type) (newTypes types) {
 	newTypes = make(types, len(t)+1)
 	newTypes[0] = componentMeta{
-		Component: c,
-		name:      name,
-		storeType: storeType,
+		Component:  c,
+		columnType: storeType,
 	}
 	copy(newTypes[1:], t)
 	return
 }
 
-func (s storeImpl[C]) len() int {
-	return len(s)
+func (c columnImpl[C]) len() int {
+	return len(c)
 }
 
-func (s *storeImpl[C]) appendFrom(other store, row int) {
-	*s = append(*s, (*other.(*storeImpl[C]))[row])
+func (c *columnImpl[C]) appendFrom(other column, row int) {
+	*c = append(*c, (*other.(*columnImpl[C]))[row])
 }
 
-func (s *storeImpl[C]) swapDelete(i int) {
-	last := len(*s) - 1
-	(*s)[i] = (*s)[last]
-	*s = (*s)[:last]
+func (c *columnImpl[C]) swapDelete(i int) {
+	last := len(*c) - 1
+	(*c)[i] = (*c)[last]
+	*c = (*c)[:last]
 }
 
-func (s *storeImpl[C]) append(data C) int {
-	*s = append(*s, data)
-	return len(*s) - 1
+func (c *columnImpl[C]) append(data C) int {
+	*c = append(*c, data)
+	return len(*c) - 1
 }

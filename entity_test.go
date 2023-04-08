@@ -14,11 +14,11 @@ func ExampleEntity_basic() {
 
 	world := ecs.NewWorld()
 
-	position := ecs.NewComponent(world)
-	walking := ecs.NewComponent(world)
+	position := ecs.NewNamedComponent(world, "Position")
+	walking := ecs.NewNamedComponent(world, "Walking")
 
 	// Create an entity with name Bob
-	bob := ecs.NewEntity(world)
+	bob := ecs.NewNamedEntity(world, "Bob")
 
 	// The set operation finds or creates a component, and sets it.
 	ecs.Set(world, bob, position, Position{10, 20})
@@ -34,29 +34,26 @@ func ExampleEntity_basic() {
 	ecs.Set(world, bob, position, Position{20, 30})
 
 	// Create another named entity
-	alice := ecs.NewEntity(world)
+	alice := ecs.NewNamedEntity(world, "Alice")
 	ecs.Set(world, alice, position, Position{10, 20})
 	ecs.Set(world, alice, walking, Walking{})
 
 	// Print all the components the entity has. This will output:
 	//    Position, Walking, (Identifier,Name)
 	fmt.Printf("[%s]\n", ecs.Type(world, alice))
-
+	// Iterate all entities with Position
+	ecs.TermIter[Position](world, position, func(entities []ecs.Entity, p []Position) {
+		for i, e := range entities {
+			entityName := ecs.Get[string](world, e, world.NameComp)
+			fmt.Printf("%s: {%f, %f}\n", *entityName, p[i].x, p[i].y)
+		}
+	})
 	// Remove tag
 	ecs.Remove[Walking](world, alice, walking)
 
-	// Iterate all entities with Position
-	//it := ecs.TermIter[Position](ecs, nil)
-	//for it.Next() {
-	//	p := ecs.Field[Position](it, 1)
-	//	for i := 0; i < len(it.Entities); i++ {
-	//		fmt.Printf("%s: {%f, %f}\n", it.Entities[i].Name(ecs), p[i].x, p[i].y)
-	//	}
-	//}
-
 	// Output:
 	// {10.000000, 20.000000}
-	// [Position, Walking, (Identifier,Name)]
-	// Alice: {10.000000, 20.000000}
+	// [Position, Walking, ecs.Name]
 	// Bob: {20.000000, 30.000000}
+	// Alice: {10.000000, 20.000000}
 }
