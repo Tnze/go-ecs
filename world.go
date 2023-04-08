@@ -166,7 +166,9 @@ func Set[C any](w *World, e Entity, c Component, data C) {
 	target.records.append(rec)
 	rec.at.entities.swapDelete(rec.row)
 	rec.at.records.swapDelete(rec.row)
-	w.entities[e].row = rec.row
+	if rec.row != len(rec.at.entities) {
+		w.entities[rec.at.entities[rec.row]].row = rec.row
+	}
 	target.comps[w.components[c][target]].(*columnImpl[C]).append(data)
 	// Move other components
 	for _, t := range rec.at.types {
@@ -206,7 +208,9 @@ func Remove(w *World, e Entity, c Component) {
 	target.records.append(rec)
 	rec.at.entities.swapDelete(rec.row)
 	rec.at.records.swapDelete(rec.row)
-	w.entities[e].row = rec.row
+	if rec.row != len(rec.at.entities) {
+		w.entities[rec.at.entities[rec.row]].row = rec.row
+	}
 	for _, t := range target.types {
 		// Move other components
 		idx := w.components[t.Component]

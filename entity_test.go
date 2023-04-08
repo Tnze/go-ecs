@@ -49,7 +49,7 @@ func ExampleEntity_basic() {
 		}
 	})
 	// Remove tag
-	ecs.Remove[Walking](world, alice, walking)
+	ecs.Remove(world, alice, walking)
 
 	// Output:
 	// {10.000000, 20.000000}
