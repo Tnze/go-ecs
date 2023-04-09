@@ -5,27 +5,38 @@ import "fmt"
 func ExampleFilter_All() {
 	w := NewWorld()
 
-	var entities [100]Entity
+	// Create 10 entities.
+	var entities [10]Entity
 	for i := range entities {
 		entities[i] = NewEntity(w)
 	}
 
+	// Create 2 components.
 	c1 := NewComponent(w)
 	c2 := NewComponent(w)
-	for _, e := range entities[:50] {
-		AddComp(w, e, c1)
+
+	// Add components to entities.
+	for i, e := range entities[:5] {
+		SetComp(w, e, c1, i)
 	}
-	for i, e := range entities[30:70] {
-		SetComp(w, e, c2, i)
+	for i, e := range entities[3:7] {
+		SetComp(w, e, c2, i+3)
 	}
 
+	// Current layout:
+	//
+	// entity:[0 1 2 3 4 5 6 7 8 9]
+	// c1:    [0 1 2 3 4          ]
+	// c2:    [      3 4 5 6 7    ]
+	// c1&c2: [      3 4          ]
+
+	// Query all entities which have both c1 and c2.
 	Filter{c1, c2}.All(w, func(entities []Entity, data []any) {
-		fmt.Println(entities)
-		// len(data) == 1 because c1 doesn't store data
+		// The type of the data's element is `Table[T]`,
+		// which can be converted to `[]T` only after type assertion.
 		fmt.Println([]int(*data[0].(*Table[int])))
 	})
 
 	// Output:
-	// [30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49]
-	// [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19]
+	// [3 4]
 }

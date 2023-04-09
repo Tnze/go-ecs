@@ -91,7 +91,18 @@ func NewEntity(w *World) (e Entity) {
 }
 
 func DelEntity(w *World, e Entity) {
-	// TODO
+	rec := w.entities[e]
+	rec.at.entities.swapDelete(rec.row)
+	rec.at.records.swapDelete(rec.row)
+	for _, t := range rec.at.types {
+		if col := w.components[t.Component][rec.at]; col >= 0 {
+			rec.at.comps[col].swapDelete(rec.row)
+		}
+	}
+	if rec.row != len(rec.at.entities) {
+		rec.at.records[rec.row].row = rec.row
+	}
+	delete(w.entities, e)
 	w.idManager.put(uint64(e))
 }
 
@@ -165,7 +176,7 @@ func AddComp(w *World, e Entity, c Component) {
 	// Because we move the last entity in rec.at.entities.
 	// We have to update its row value in w.entities.
 	if rec.row != len(rec.at.entities) {
-		w.entities[rec.at.entities[rec.row]].row = rec.row
+		rec.at.records[rec.row].row = rec.row
 	}
 	if col := w.components[c][target]; col >= 0 {
 		panic("cannot add component has type" + target.types[col].columnType.String())
@@ -215,7 +226,7 @@ func SetComp[C any](w *World, e Entity, c Component, data C) {
 	// Because we move the last entity in rec.at.entities.
 	// We have to update its row value in w.entities.
 	if rec.row != len(rec.at.entities) {
-		w.entities[rec.at.entities[rec.row]].row = rec.row
+		rec.at.records[rec.row].row = rec.row
 	}
 	target.comps[w.components[c][target]].(*Table[C]).append(data)
 
@@ -249,7 +260,7 @@ func DelComp(w *World, e Entity, c Component) {
 	// Because we move the last entity in rec.at.entities.
 	// We have to update its row value in w.entities.
 	if rec.row != len(rec.at.entities) {
-		w.entities[rec.at.entities[rec.row]].row = rec.row
+		rec.at.records[rec.row].row = rec.row
 	}
 
 	rec.at = target
