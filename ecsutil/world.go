@@ -9,12 +9,17 @@ import (
 type World struct {
 	*ecs.World
 	components map[reflect.Type]ecs.Component
+	NameComp   ecs.Component
 }
 
 func NewWorld() *World {
+	w := ecs.NewWorld()
+	name := ecs.NewComponent(w)
+	ecs.SetComp(w, name.Entity, name, "Name")
 	return &World{
-		World:      ecs.NewWorld(),
+		World:      w,
 		components: make(map[reflect.Type]ecs.Component),
+		NameComp:   name,
 	}
 }
 
@@ -31,9 +36,10 @@ func Set[C any](e Entity, data C) {
 	t := reflect.TypeOf(data)
 	c, ok := e.w.components[t]
 	if !ok {
-		c = ecs.NewNamedComponent(e.w.World, t.String())
+		c = ecs.NewComponent(e.w.World)
+		ecs.SetComp(e.w.World, e.Entity, e.w.NameComp, t.String())
 	}
-	ecs.Set(e.w.World, e.Entity, c, data)
+	ecs.SetComp(e.w.World, e.Entity, c, data)
 }
 
 func Get[C any](e Entity) (data *C) {
@@ -50,5 +56,5 @@ func Remove[C any](e Entity) {
 	if !ok {
 		return
 	}
-	ecs.Remove(e.w.World, e.Entity, c)
+	ecs.DelComp(e.w.World, e.Entity, c)
 }
