@@ -9,7 +9,7 @@ func TestAddComp_addComponent(t *testing.T) {
 
 	AddComp(w, e, position)
 	if !HasComp(w, e, position) {
-		t.Errorf("Unexpected")
+		t.FailNow()
 	}
 }
 
@@ -20,12 +20,12 @@ func TestAddComp_addComponentAgain(t *testing.T) {
 
 	AddComp(w, e, position)
 	if !HasComp(w, e, position) {
-		t.Errorf("Unexpected")
+		t.FailNow()
 	}
 
 	AddComp(w, e, position)
 	if !HasComp(w, e, position) {
-		t.Errorf("Unexpected")
+		t.FailNow()
 	}
 }
 
@@ -37,12 +37,12 @@ func TestAddComp_add2Component(t *testing.T) {
 
 	AddComp(w, e, position)
 	if !HasComp(w, e, position) || HasComp(w, e, velocity) {
-		t.Errorf("Unexpected")
+		t.FailNow()
 	}
 
 	AddComp(w, e, velocity)
 	if !HasComp(w, e, position) || !HasComp(w, e, velocity) {
-		t.Errorf("Unexpected")
+		t.FailNow()
 	}
 }
 
@@ -55,13 +55,13 @@ func TestAddComp_add2ComponentAgain(t *testing.T) {
 	AddComp(w, e, position)
 	AddComp(w, e, velocity)
 	if !HasComp(w, e, position) || !HasComp(w, e, velocity) {
-		t.Errorf("Unexpected")
+		t.FailNow()
 	}
 
 	AddComp(w, e, position)
 	AddComp(w, e, velocity)
 	if !HasComp(w, e, position) || !HasComp(w, e, velocity) {
-		t.Errorf("Unexpected")
+		t.FailNow()
 	}
 }
 
@@ -75,12 +75,12 @@ func TestAddComp_add2ComponentOverlap(t *testing.T) {
 	AddComp(w, e, position)
 	AddComp(w, e, velocity)
 	if !HasComp(w, e, position) || !HasComp(w, e, velocity) || HasComp(w, e, mass) {
-		t.Errorf("Unexpected")
+		t.FailNow()
 	}
 
 	AddComp(w, e, velocity)
 	AddComp(w, e, mass)
 	if !HasComp(w, e, position) || !HasComp(w, e, velocity) || !HasComp(w, e, mass) {
-		t.Errorf("Unexpected")
+		t.FailNow()
 	}
 }

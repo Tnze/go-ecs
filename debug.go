@@ -2,7 +2,6 @@ package ecs
 
 import (
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -13,7 +12,8 @@ func Type(w *World, e Entity, nameComp Component) string {
 	for i, v := range rec.at.types {
 		switch name := Get[string](w, v.Entity, nameComp); name {
 		case nil:
-			compNames[i] = "<unnamed(" + strconv.FormatUint(uint64(v.Entity), 10) + ")>"
+			// type of v.columnType has to be `*Table[T]` which .Elem is `Table[T]` which .Elem is `T`
+			compNames[i] = v.columnType.Elem().Elem().Name()
 		default:
 			compNames[i] = *name
 		}

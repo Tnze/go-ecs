@@ -51,7 +51,8 @@ func ExampleEntity_basic() {
 	//    Position, Walking, (Identifier,Name)
 	fmt.Printf("[%s]\n", ecs.Type(w, alice, name))
 	// Iterate all entities with Position
-	ecs.TermIter[Position](w, position, func(entities []ecs.Entity, p []Position) {
+	ecs.Filter{position}.All(w, func(entities ecs.Table[ecs.Entity], data []any) {
+		p := *data[0].(*ecs.Table[Position])
 		for i, e := range entities {
 			entityName := ecs.Get[string](w, e, name)
 			fmt.Printf("%s: {%f, %f}\n", *entityName, p[i].x, p[i].y)
@@ -83,13 +84,15 @@ func TestEntity_basic(t *testing.T) {
 	ecs.SetComp(w, e2, c2, "E2-C2")
 	ecs.SetComp(w, e3, c2, "E2-C2")
 
-	ecs.TermIter[string](w, c1, func(entities []ecs.Entity, s []string) {
+	ecs.Filter{c1}.All(w, func(entities ecs.Table[ecs.Entity], data []any) {
+		s := *data[0].(*ecs.Table[string])
 		for i, e := range entities {
 			entityName := ecs.Get[string](w, e, name)
 			fmt.Printf("%s: %s\n", *entityName, s[i])
 		}
 	})
-	ecs.TermIter[string](w, c2, func(entities []ecs.Entity, s []string) {
+	ecs.Filter{c2}.All(w, func(entities ecs.Table[ecs.Entity], data []any) {
+		s := *data[0].(*ecs.Table[string])
 		for i, e := range entities {
 			entityName := ecs.Get[string](w, e, name)
 			fmt.Printf("%s: %s\n", *entityName, s[i])
