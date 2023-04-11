@@ -20,10 +20,24 @@ a:
 	}
 }
 
-func (f Filter) Any() {
+func (f Filter) Any(w *World, h func(entities Table[Entity], data []any)) {
+	data := make([]any, 0, len(f))
+	for _, a := range w.archetypes {
+		var pass bool
+		data = data[:0]
+		for _, c := range f {
+			if col, ok := w.components[c][a]; ok {
+				pass = true
+				if col >= 0 {
+					data = append(data, a.comps[col])
+				}
+			}
+		}
+		if pass {
+			h(a.entities, data)
+		}
+	}
 }
-
-func (f Filter) Nor() {}
 
 func (f Filter) CacheAll(w *World) *Query {
 	var q Query
@@ -42,15 +56,8 @@ a:
 	}
 	q.world = w
 	q.filter = f
+	q.data = make([]any, 0, len(f))
 	return &q
-}
-
-func (f Filter) CacheAny(w *World) *Query {
-	return nil
-}
-
-func (f Filter) CacheNor(w *World) *Query {
-	return nil
 }
 
 // Query is cached filter
@@ -61,16 +68,17 @@ type Query struct {
 	filter  Filter
 	tables  []*archetype
 	columns [][]int
+
+	data []any
 }
 
 func (q *Query) Run(h func(entities Table[Entity], data []any)) {
-	data := make([]any, 0, len(q.filter))
+	data := q.data[:0]
 	for i, a := range q.tables {
-		for j := range q.filter {
-			if col := q.columns[i][j]; col >= 0 {
-				data = append(data, a.comps[col])
-			}
+		for _, col := range q.columns[i] {
+			data = append(data, a.comps[col])
 		}
 		h(a.entities, data)
 	}
+	q.data = data
 }
