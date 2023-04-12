@@ -14,10 +14,30 @@ type (
 	// --flecs.dev
 	World struct {
 		idManager
+
+		// The default archetype for newly created entities, which contains no components.
 		zero *archetype
 
-		entities   map[Entity]*entityRecord
+		// All entities in the World, including components.
+		// Records their archetype's pointer and the index of the comps belonging to the entity.
+		entities map[Entity]*entityRecord
+
+		// All archetypes in the World.
+		// The key of the map is the hash of the archetype's types.
+		// And the value is the archetype's pointer.
 		archetypes map[uint64]*archetype
+
+		// This field stores maps for each component.
+		// Each map contains a list of archetypes that have the component.
+		// And the component's corresponding column index in the archetype.
+		//
+		// We can check if an archetype has a component by looking up the map.
+		//
+		// For any Component c and archetype a:
+		//	col, ok := components[c][a]
+		// If ok == true, then archetype a has component c, otherwise it doesn't.
+		// And if col == -1, archetype a has component c but doesn't contain any data,
+		// otherwise the col is the index of the component's column in the archetype.
 		components map[Component]map[*archetype]int
 	}
 
@@ -46,15 +66,25 @@ type (
 		row int
 	}
 	archetype struct {
+		// A list of components.
+		// It's sorted and able to be hashed.
+		// Allowing us to find the archetype by the hash of its type.
 		types
 		entities Table[Entity]
 		records  Table[*entityRecord]
 		comps    []column
-		edges    map[Component]archetypeEdge
+
+		// A list of edges to other archetypes.
+		// Used to find the next archetype when adding or removing components.
+		edges map[Component]archetypeEdge
 	}
 	types         []componentMeta
 	componentMeta struct {
 		Component
+		// If the component's corresponding data has type T,
+		// this stores the reflect.Type of Table[T].
+		// We need this because, when creating new archetypes,
+		// we need to create new storage for the components.
 		columnType reflect.Type
 	}
 	archetypeEdge struct {

@@ -76,7 +76,9 @@ func (q *Query) Run(h func(entities Table[Entity], data []any)) {
 	data := q.data[:0]
 	for i, a := range q.tables {
 		for _, col := range q.columns[i] {
-			data = append(data, a.comps[col])
+			if col >= 0 {
+				data = append(data, a.comps[col])
+			}
 		}
 		h(a.entities, data)
 	}
