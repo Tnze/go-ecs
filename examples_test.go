@@ -2,7 +2,7 @@ package ecs_test
 
 import (
 	"fmt"
-	"testing"
+	"sort"
 
 	"github.com/Tnze/go-ecs"
 )
@@ -68,85 +68,83 @@ func ExampleEntity_basic() {
 	// Alice: {10.000000, 20.000000}
 }
 
-func TestEntity_basic(t *testing.T) {
+func ExampleQueryAll() {
 	w := ecs.NewWorld()
-	name := ecs.NewComponent(w)
+
+	// Create 10 entities.
+	var entities [10]ecs.Entity
+	for i := range entities {
+		entities[i] = ecs.NewEntity(w)
+	}
+
+	// Create 2 components.
 	c1 := ecs.NewComponent(w)
 	c2 := ecs.NewComponent(w)
-	e1 := ecs.NewEntity(w)
-	e2 := ecs.NewEntity(w)
-	e3 := ecs.NewEntity(w)
-	ecs.SetComp(w, e1, name, "E1")
-	ecs.SetComp(w, e2, name, "E2")
-	ecs.SetComp(w, e3, name, "E3")
-	ecs.SetComp(w, e1, c1, "E1-C1")
-	ecs.SetComp(w, e2, c1, "E2-C1")
-	ecs.SetComp(w, e2, c2, "E2-C2")
-	ecs.SetComp(w, e3, c2, "E2-C2")
 
-	ecs.QueryAll(c1).Run(w, func(entities ecs.Table[ecs.Entity], data []any) {
-		s := *data[0].(*ecs.Table[string])
-		for i, e := range entities {
-			entityName := ecs.Get[string](w, e, name)
-			fmt.Printf("%s: %s\n", *entityName, s[i])
-		}
+	// Add components to entities.
+	for i, e := range entities[:5] {
+		ecs.SetComp(w, e, c1, i)
+	}
+	for i, e := range entities[3:7] {
+		ecs.SetComp(w, e, c2, i+3)
+	}
+
+	// Current layout:
+	//
+	// entity:[0 1 2 3 4 5 6 7 8 9]
+	// c1:    [0 1 2 3 4          ]
+	// c2:    [      3 4 5 6      ]
+	// c1&c2: [      3 4          ]
+
+	// CachedQuery all entities which have both c1 and c2.
+	ecs.QueryAll(c1, c2).Run(w, func(entities ecs.Table[ecs.Entity], data []any) {
+		// The type of the data's element is `Table[T]`,
+		// which can be converted to `[]T` only after type assertion.
+		fmt.Println([]int(*data[0].(*ecs.Table[int])))
 	})
-	ecs.QueryAll(c2).Run(w, func(entities ecs.Table[ecs.Entity], data []any) {
-		s := *data[0].(*ecs.Table[string])
-		for i, e := range entities {
-			entityName := ecs.Get[string](w, e, name)
-			fmt.Printf("%s: %s\n", *entityName, s[i])
-		}
-	})
+
+	// Output:
+	// [3 4]
 }
 
-func BenchmarkNewEntity(b *testing.B) {
+func ExampleQueryAny() {
 	w := ecs.NewWorld()
-	for i := 0; i < b.N; i++ {
-		ecs.NewEntity(w)
-	}
-}
 
-func BenchmarkAddComp_millionEntities(b *testing.B) {
-	prepare := func(n int) (w *ecs.World, entities []ecs.Entity, components []ecs.Component) {
-		w = ecs.NewWorld()
-		entities = make([]ecs.Entity, 1_000_000)
-		for i := range entities {
-			entities[i] = ecs.NewEntity(w)
-		}
-		components = make([]ecs.Component, n)
-		for i := range components {
-			components[i] = ecs.NewComponent(w)
-		}
-		return
+	// Create 10 entities.
+	var entities [10]ecs.Entity
+	for i := range entities {
+		entities[i] = ecs.NewEntity(w)
 	}
 
-	b.Run("ByHash", func(b *testing.B) {
-		w, entities, components := prepare(b.N)
+	// Create 2 components.
+	c1 := ecs.NewComponent(w)
+	c2 := ecs.NewComponent(w)
 
-		b.ResetTimer()
+	// Add components to entities.
+	for i, e := range entities[:5] {
+		ecs.SetComp(w, e, c1, i)
+	}
+	for i, e := range entities[3:7] {
+		ecs.SetComp(w, e, c2, i+3)
+	}
 
-		for i, e := range entities {
-			for c := i; c < b.N+i; c++ {
-				ecs.AddComp(w, e, components[c%b.N])
-			}
-		}
+	// Current layout:
+	//
+	// entity:[0 1 2 3 4 5 6 7 8 9]
+	// c1:    [0 1 2 3 4          ]
+	// c2:    [      3 4 5 6      ]
+	// c1&c2: [      3 4          ]
+
+	// CachedQuery all entities which have both c1 and c2.
+	var result []int
+	ecs.QueryAny(c1, c2).Run(w, func(entities ecs.Table[ecs.Entity], data []any) {
+		// The type of the data's element is `Table[T]`,
+		// which can be converted to `[]T` only after type assertion.
+		result = append(result, []int(*data[0].(*ecs.Table[int]))...)
 	})
+	sort.Ints(result)
+	fmt.Println(result)
 
-	b.Run("ByShortcuts", func(b *testing.B) {
-		w, entities, components := prepare(b.N)
-		// create shortcuts
-		tmpEntity := ecs.NewEntity(w)
-		for c := 0; c < b.N; c++ {
-			ecs.AddComp(w, tmpEntity, components[c])
-		}
-
-		b.ResetTimer()
-
-		for _, e := range entities {
-			for c := 0; c < b.N; c++ {
-				ecs.AddComp(w, e, components[c])
-			}
-		}
-	})
+	// Output:
+	// [0 1 2 3 4 5 6]
 }

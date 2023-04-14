@@ -14,6 +14,7 @@ type (
 	// --flecs.dev
 	World struct {
 		idManager
+		hash maphash.Hash // used for hash archetypes' type
 
 		// The default archetype for newly created entities, which contains no components.
 		zero *archetype
@@ -29,7 +30,7 @@ type (
 
 		// This field stores maps for each component.
 		// Each map contains a list of archetypes that have the component.
-		// And the component's corresponding column index in the archetype.
+		// And the component's corresponding storage index in the archetype.
 		//
 		// We can check if an archetype has a component by looking up the map.
 		//
@@ -37,7 +38,7 @@ type (
 		//	col, ok := components[c][a]
 		// If ok == true, then archetype a has component c, otherwise it doesn't.
 		// And if col == -1, archetype a has component c but doesn't contain any data,
-		// otherwise the col is the index of the component's column in the archetype.
+		// otherwise the col is the index of the component's storage in the archetype.
 		components map[Component]map[*archetype]int
 	}
 
@@ -69,7 +70,7 @@ type (
 		types
 		entities Table[Entity]
 		records  Table[*entityRecord]
-		comps    []column
+		comps    []storage
 
 		// A list of edges to other archetypes.
 		// Used to find the next archetype when adding or removing components.
@@ -86,16 +87,14 @@ type (
 		// this stores the reflect.Type of Table[T].
 		// We need this because, when creating new archetypes,
 		// we need to create new storage for the components.
-		columnType reflect.Type
+		tableType reflect.Type
 	}
 	archetypeEdge struct {
 		add, del *archetype
 	}
-	column interface {
-		appendFrom(other column, column int)
+	storage interface {
+		appendFrom(other storage, column int)
 		swapDelete(i int)
-		newEmpty() column
-		len() int
 	}
 	Table[C any] []C
 )
@@ -107,7 +106,7 @@ func NewWorld() (w *World) {
 		archetypes: make(map[uint64]*archetype),
 		components: make(map[Component]map[*archetype]int),
 	}
-	w.zero = newArchetype(w, nil)
+	w.zero = newArchetype(w, nil, types{}.sortHash(&w.hash))
 	return
 }
 
@@ -126,9 +125,9 @@ func DelEntity(w *World, e Entity) {
 	rec := w.entities[e]
 	rec.at.entities.swapDelete(rec.row)
 	rec.at.records.swapDelete(rec.row)
-	for _, t := range rec.at.types {
-		if col := w.components[t.Component][rec.at]; col >= 0 {
-			rec.at.comps[col].swapDelete(rec.row)
+	for _, s := range rec.at.comps {
+		if s != nil {
+			s.swapDelete(rec.row)
 		}
 	}
 	if rec.row != len(rec.at.entities) {
@@ -146,23 +145,57 @@ func NewComponent(w *World) (c Component) {
 	return
 }
 
-func newArchetype(w *World, t types) (a *archetype) {
+// The hash can be calculated by t.sortHash(&w.hash).
+// We Always calculate it before calling this function, so just pass it in.
+func newArchetype(w *World, t types, hash uint64) (a *archetype) {
 	a = &archetype{
 		types: t,
-		comps: make([]column, len(t)),
+		comps: make([]storage, len(t)),
 		edges: make(map[Component]archetypeEdge),
 	}
 	for i, v := range t {
-		a.comps[i] = reflect.New(v.columnType.Elem()).Interface().(column)
+		if v.tableType != nil {
+			a.comps[i] = reflect.New(v.tableType.Elem()).Interface().(storage)
+		}
 		w.components[v.Component][a] = i
 	}
-	w.archetypes[t.sortHash()] = a
+	w.archetypes[hash] = a
 	return
 }
 
 // AddComp adds the Component to Entity as a label, with no data.
 func AddComp(w *World, e Entity, c Component) {
-	SetComp(w, e, c, struct{}{})
+	rec := w.entities[e]
+	// If the archetype of e already contains c.
+	// Override the data and return.
+	if _, ok := w.components[c][rec.at]; ok {
+		return
+	}
+	// Lookup archetypeEdge for shortcuts
+	edge := rec.at.edges[c]
+	target := edge.add
+	if target == nil {
+		// We don't have shortcuts yet. Use the hash way.
+		var ok bool
+		newTypes := rec.at.types.copyAppend(c, nil)
+		hash := newTypes.sortHash(&w.hash)
+		if target, ok = w.archetypes[hash]; !ok {
+			target = newArchetype(w, newTypes, hash)
+		}
+		// Save to the shortcuts
+		edge.add = target
+		rec.at.edges[c] = edge
+	}
+	// Move entity to the new archetype
+	row := moveEntity(e, target, rec, rec.at.types)
+	// Because we move the last entity in rec.at.entities.
+	// We have to update its row value in w.entities.
+	if rec.row != len(rec.at.entities) {
+		rec.at.records[rec.row].row = rec.row
+	}
+
+	rec.at = target
+	rec.row = row
 }
 
 func HasComp(w *World, e Entity, c Component) bool {
@@ -193,8 +226,9 @@ func SetComp[C any](w *World, e Entity, c Component, data C) {
 		var tmpS *Table[C]
 		var ok bool
 		newTypes := rec.at.types.copyAppend(c, reflect.TypeOf(tmpS))
-		if target, ok = w.archetypes[newTypes.sortHash()]; !ok {
-			target = newArchetype(w, newTypes)
+		hash := newTypes.sortHash(&w.hash)
+		if target, ok = w.archetypes[hash]; !ok {
+			target = newArchetype(w, newTypes, hash)
 		}
 		// Save to the shortcuts
 		edge.add = target
@@ -214,11 +248,7 @@ func SetComp[C any](w *World, e Entity, c Component, data C) {
 }
 
 func moveEntity(e Entity, dst *archetype, srcRec *entityRecord, list types) (newRow int) {
-	newRow = dst.entities.append(e)
-	dst.records.append(srcRec)
-	srcRec.at.entities.swapDelete(srcRec.row)
-	srcRec.at.records.swapDelete(srcRec.row)
-	// Move components
+	// Copy components
 	srcCol, dstCol := 0, 0
 	for _, t := range list {
 		for ; srcRec.at.types[srcCol].Component != t.Component; srcCol++ {
@@ -228,9 +258,19 @@ func moveEntity(e Entity, dst *archetype, srcRec *entityRecord, list types) (new
 		for ; dst.types[dstCol].Component != t.Component; dstCol++ {
 			// So do here.
 		}
-		src := srcRec.at.comps[srcCol]
-		dst.comps[dstCol].appendFrom(src, srcRec.row)
-		src.swapDelete(srcRec.row)
+		if src := srcRec.at.comps[srcCol]; src != nil {
+			dst.comps[dstCol].appendFrom(src, srcRec.row)
+		}
+	}
+	// Delete everything in src
+	newRow = dst.entities.append(e)
+	dst.records.append(srcRec)
+	srcRec.at.entities.swapDelete(srcRec.row)
+	srcRec.at.records.swapDelete(srcRec.row)
+	for _, s := range srcRec.at.comps {
+		if s != nil {
+			s.swapDelete(srcRec.row)
+		}
 	}
 	return
 }
@@ -249,8 +289,9 @@ func DelComp(w *World, e Entity, c Component) {
 	if target == nil {
 		// We don't have shortcuts yet. Use the hash way.
 		newTypes := rec.at.types.copyDelete(col)
-		if target, ok = w.archetypes[newTypes.sortHash()]; !ok {
-			target = newArchetype(w, newTypes)
+		hash := newTypes.sortHash(&w.hash)
+		if target, ok = w.archetypes[hash]; !ok {
+			target = newArchetype(w, newTypes, hash)
 		}
 		// Save to the shortcuts
 		edge.del = target
@@ -293,24 +334,24 @@ func (i *idManager) put(id uint64) {
 	i.freelist = append(i.freelist, id)
 }
 
-func (t types) sortHash() uint64 {
+func (t types) sortHash(hash *maphash.Hash) uint64 {
 	// sort the component list
 	sort.Slice(t, func(i, j int) bool {
-		return t[i].Component.Entity < t[i].Component.Entity
+		return t[i].Component.Entity < t[j].Component.Entity
 	})
 	// calculate hash
-	var h maphash.Hash
+	hash.Reset()
 	for i := range t {
-		h.Write((*[8]byte)(unsafe.Pointer(&t[i].Component))[:])
+		hash.Write((*[8]byte)(unsafe.Pointer(&t[i].Component))[:])
 	}
-	return h.Sum64()
+	return hash.Sum64()
 }
 
 func (t types) copyAppend(c Component, storeType reflect.Type) (newTypes types) {
 	newTypes = make(types, len(t)+1)
 	newTypes[0] = componentMeta{
-		Component:  c,
-		columnType: storeType,
+		Component: c,
+		tableType: storeType,
 	}
 	copy(newTypes[1:], t)
 	return
@@ -325,11 +366,7 @@ func (t types) copyDelete(i int) (newTypes types) {
 	return
 }
 
-func (c *Table[C]) len() int {
-	return len(*c)
-}
-
-func (c *Table[C]) appendFrom(other column, row int) {
+func (c *Table[C]) appendFrom(other storage, row int) {
 	*c = append(*c, (*other.(*Table[C]))[row])
 }
 
@@ -342,8 +379,4 @@ func (c *Table[C]) swapDelete(i int) {
 func (c *Table[C]) append(data C) int {
 	*c = append(*c, data)
 	return len(*c) - 1
-}
-
-func (c *Table[C]) newEmpty() column {
-	return new(Table[C])
 }

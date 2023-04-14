@@ -1,95 +1,13 @@
 package ecs
 
 import (
-	"fmt"
 	"math/rand"
 	"reflect"
 	"sort"
 	"testing"
 )
 
-func ExampleQueryAll() {
-	w := NewWorld()
-
-	// Create 10 entities.
-	var entities [10]Entity
-	for i := range entities {
-		entities[i] = NewEntity(w)
-	}
-
-	// Create 2 components.
-	c1 := NewComponent(w)
-	c2 := NewComponent(w)
-
-	// Add components to entities.
-	for i, e := range entities[:5] {
-		SetComp(w, e, c1, i)
-	}
-	for i, e := range entities[3:7] {
-		SetComp(w, e, c2, i+3)
-	}
-
-	// Current layout:
-	//
-	// entity:[0 1 2 3 4 5 6 7 8 9]
-	// c1:    [0 1 2 3 4          ]
-	// c2:    [      3 4 5 6      ]
-	// c1&c2: [      3 4          ]
-
-	// CachedQuery all entities which have both c1 and c2.
-	QueryAll(c1, c2).Run(w, func(entities Table[Entity], data []any) {
-		// The type of the data's element is `Table[T]`,
-		// which can be converted to `[]T` only after type assertion.
-		fmt.Println([]int(*data[0].(*Table[int])))
-	})
-
-	// Output:
-	// [3 4]
-}
-
-func ExampleQueryAny() {
-	w := NewWorld()
-
-	// Create 10 entities.
-	var entities [10]Entity
-	for i := range entities {
-		entities[i] = NewEntity(w)
-	}
-
-	// Create 2 components.
-	c1 := NewComponent(w)
-	c2 := NewComponent(w)
-
-	// Add components to entities.
-	for i, e := range entities[:5] {
-		SetComp(w, e, c1, i)
-	}
-	for i, e := range entities[3:7] {
-		SetComp(w, e, c2, i+3)
-	}
-
-	// Current layout:
-	//
-	// entity:[0 1 2 3 4 5 6 7 8 9]
-	// c1:    [0 1 2 3 4          ]
-	// c2:    [      3 4 5 6      ]
-	// c1&c2: [      3 4          ]
-
-	// CachedQuery all entities which have both c1 and c2.
-	var result []int
-	QueryAny(c1, c2).Run(w, func(entities Table[Entity], data []any) {
-		// The type of the data's element is `Table[T]`,
-		// which can be converted to `[]T` only after type assertion.
-		result = append(result, []int(*data[0].(*Table[int]))...)
-	})
-	sort.Ints(result)
-	fmt.Println(result)
-
-	// Output:
-	// [0 1 2 3 4 5 6]
-}
-
-func TestQuery(t *testing.T) {
+func TestFilter_Run(t *testing.T) {
 	w := NewWorld()
 
 	// Create 10 entities.
@@ -115,10 +33,9 @@ func TestQuery(t *testing.T) {
 	// c2: [      3 4 5 6      ]
 
 	filters := [][]Component{{c1}, {c2}, {c1, c2}}
-
-	t.Run("All", func(t *testing.T) {
+	var wants [][]int
+	testAll := func(t *testing.T) {
 		var result []int
-		wants := [][]int{{0, 1, 2, 3, 4}, {3, 4, 5, 6}, {3, 4}}
 		for i, want := range wants {
 			result = result[:0]
 			QueryAll(filters[i]...).Run(w, func(entities Table[Entity], data []any) {
@@ -130,10 +47,9 @@ func TestQuery(t *testing.T) {
 				t.Errorf("get: %v, want: %v", result, want)
 			}
 		}
-	})
-	t.Run("Any", func(t *testing.T) {
+	}
+	testAny := func(t *testing.T) {
 		var result []int
-		wants := [][]int{{0, 1, 2, 3, 4}, {3, 4, 5, 6}, {0, 1, 2, 3, 4, 5, 6}}
 		for i, want := range wants {
 			result = result[:0]
 			QueryAny(filters[i]...).Run(w, func(entities Table[Entity], data []any) {
@@ -145,7 +61,78 @@ func TestQuery(t *testing.T) {
 				t.Errorf("get: %v, want: %v", result, want)
 			}
 		}
+	}
+
+	wants = [][]int{{0, 1, 2, 3, 4}, {3, 4, 5, 6}, {3, 4}}
+	t.Run("All", testAll)
+	wants = [][]int{{0, 1, 2, 3, 4}, {3, 4, 5, 6}, {0, 1, 2, 3, 4, 5, 6}}
+	t.Run("Any", testAny)
+
+	// change the entities
+	SetComp(w, entities[6], c1, 6)
+	DelComp(w, entities[3], c2)
+
+	// id: [0 1 2 3 4 5 6 7 8 9]
+	// c1: [0 1 2 3 4   6      ]
+	// c2: [      _ 4 5 6      ]
+
+	wants = [][]int{{0, 1, 2, 3, 4, 6}, {4, 5, 6}, {4, 6}}
+	t.Run("All", testAll)
+	wants = [][]int{{0, 1, 2, 3, 4, 6}, {4, 5, 6}, {0, 1, 2, 3, 4, 5, 6}}
+	t.Run("Any", testAny)
+}
+
+func TestFilter_Cache(t *testing.T) {
+	w := NewWorld()
+	var entities [10]Entity
+	for i := range entities {
+		entities[i] = NewEntity(w)
+	}
+
+	c1 := NewComponent(w)
+	for i, e := range entities[:5] {
+		SetComp(w, e, c1, i)
+	}
+	c2 := NewComponent(w)
+	for i, e := range entities[3:7] {
+		SetComp(w, e, c2, i+3)
+	}
+
+	// id: [0 1 2 3 4 5 6 7 8 9]
+	// c1: [0 1 2 3 4          ]
+	// c2: [      3 4 5 6      ]
+
+	// Create the cached query
+	queryBoth := QueryAll(c1, c2).Cache(w)
+
+	// Test the basic query
+	var result []int
+	queryBoth.Run(func(entities Table[Entity], data []any) {
+		result = append(result, []int(*data[0].(*Table[int]))...)
 	})
+	sort.Ints(result)
+
+	want := []int{3, 4}
+	if !reflect.DeepEqual(result, want) {
+		t.Errorf("get: %v, want: %v", result, want)
+	}
+
+	// Test if our cached query gets up to date when entities are moved
+	SetComp(w, entities[6], c1, 6)
+	DelComp(w, entities[3], c2)
+	// id: [0 1 2 3 4 5 6 7 8 9]
+	// c1: [0 1 2 3 4   6      ]
+	// c2: [      _ 4 5 6      ]
+	result = result[:0]
+	queryBoth.Run(func(entities Table[Entity], data []any) {
+		result = append(result, []int(*data[0].(*Table[int]))...)
+	})
+	sort.Ints(result)
+
+	want = []int{4, 6}
+	if !reflect.DeepEqual(result, want) {
+		t.Errorf("get: %v, want: %v", result, want)
+	}
 }
 
 func BenchmarkFilter_All(b *testing.B) {
