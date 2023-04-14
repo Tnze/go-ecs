@@ -66,9 +66,6 @@ type (
 		row int
 	}
 	archetype struct {
-		// A list of components.
-		// It's sorted and able to be hashed.
-		// Allowing us to find the archetype by the hash of its type.
 		types
 		entities Table[Entity]
 		records  Table[*entityRecord]
@@ -78,6 +75,10 @@ type (
 		// Used to find the next archetype when adding or removing components.
 		edges map[Component]archetypeEdge
 	}
+
+	// A list of components.
+	// It's sorted and able to be hashed.
+	// Allowing us to find the archetype by the hash of its type.
 	types         []componentMeta
 	componentMeta struct {
 		Component
@@ -93,6 +94,7 @@ type (
 	column interface {
 		appendFrom(other column, column int)
 		swapDelete(i int)
+		newEmpty() column
 		len() int
 	}
 	Table[C any] []C
@@ -151,69 +153,16 @@ func newArchetype(w *World, t types) (a *archetype) {
 		edges: make(map[Component]archetypeEdge),
 	}
 	for i, v := range t {
-		if v.columnType == nil {
-			w.components[v.Component][a] = -1
-		} else {
-			a.comps[i] = reflect.New(v.columnType.Elem()).Interface().(column)
-			w.components[v.Component][a] = i
-		}
+		a.comps[i] = reflect.New(v.columnType.Elem()).Interface().(column)
+		w.components[v.Component][a] = i
 	}
 	w.archetypes[t.sortHash()] = a
 	return
 }
 
-func moveEntity(w *World, dst *archetype, srcRec *entityRecord, list types) (newRow int) {
-	e := srcRec.at.entities[srcRec.row]
-	newRow = dst.entities.append(e)
-	dst.records.append(srcRec)
-	srcRec.at.entities.swapDelete(srcRec.row)
-	srcRec.at.records.swapDelete(srcRec.row)
-	// Move other components
-	for _, t := range list {
-		idx := w.components[t.Component]
-		if col := idx[srcRec.at]; col >= 0 {
-			src := srcRec.at.comps[col]
-			dst.comps[idx[dst]].appendFrom(src, srcRec.row)
-			src.swapDelete(srcRec.row)
-		}
-	}
-	return
-}
-
 // AddComp adds the Component to Entity as a label, with no data.
 func AddComp(w *World, e Entity, c Component) {
-	rec := w.entities[e]
-	// If the archetype of e already contains c, return.
-	if _, ok := w.components[c][rec.at]; ok {
-		return
-	}
-	// Lookup archetypeEdge for shortcuts
-	edge := rec.at.edges[c]
-	target := edge.add
-	if target == nil {
-		// We don't have shortcuts yet. Use the hash way.
-		var ok bool
-		newTypes := rec.at.types.copyAppend(c, nil)
-		if target, ok = w.archetypes[newTypes.sortHash()]; !ok {
-			target = newArchetype(w, newTypes)
-		}
-		// Save to the shortcuts
-		edge.add = target
-		rec.at.edges[c] = edge
-	}
-	// Move entity to the new archetype
-	row := moveEntity(w, target, rec, rec.at.types)
-	// Because we move the last entity in rec.at.entities.
-	// We have to update its row value in w.entities.
-	if rec.row != len(rec.at.entities) {
-		rec.at.records[rec.row].row = rec.row
-	}
-	if col := w.components[c][target]; col >= 0 {
-		panic("cannot add component has type" + target.types[col].columnType.String())
-	}
-
-	rec.at = target
-	rec.row = row
+	SetComp(w, e, c, struct{}{})
 }
 
 func HasComp(w *World, e Entity, c Component) bool {
@@ -252,7 +201,7 @@ func SetComp[C any](w *World, e Entity, c Component, data C) {
 		rec.at.edges[c] = edge
 	}
 	// Move entity to the new archetype
-	row := moveEntity(w, target, rec, rec.at.types)
+	row := moveEntity(e, target, rec, rec.at.types)
 	// Because we move the last entity in rec.at.entities.
 	// We have to update its row value in w.entities.
 	if rec.row != len(rec.at.entities) {
@@ -262,6 +211,28 @@ func SetComp[C any](w *World, e Entity, c Component, data C) {
 
 	rec.at = target
 	rec.row = row
+}
+
+func moveEntity(e Entity, dst *archetype, srcRec *entityRecord, list types) (newRow int) {
+	newRow = dst.entities.append(e)
+	dst.records.append(srcRec)
+	srcRec.at.entities.swapDelete(srcRec.row)
+	srcRec.at.records.swapDelete(srcRec.row)
+	// Move components
+	srcCol, dstCol := 0, 0
+	for _, t := range list {
+		for ; srcRec.at.types[srcCol].Component != t.Component; srcCol++ {
+			// The types are ordered, and srcRec.at must contain all components in the list.
+			// So we surely will find the correct index, and the access to types[i] won't panic.
+		}
+		for ; dst.types[dstCol].Component != t.Component; dstCol++ {
+			// So do here.
+		}
+		src := srcRec.at.comps[srcCol]
+		dst.comps[dstCol].appendFrom(src, srcRec.row)
+		src.swapDelete(srcRec.row)
+	}
+	return
 }
 
 // DelComp removes the Component of an Entity.
@@ -286,7 +257,7 @@ func DelComp(w *World, e Entity, c Component) {
 		rec.at.edges[c] = edge
 	}
 	// Move entity
-	row := moveEntity(w, target, rec, target.types)
+	row := moveEntity(e, target, rec, target.types)
 	// Because we move the last entity in rec.at.entities.
 	// We have to update its row value in w.entities.
 	if rec.row != len(rec.at.entities) {
@@ -354,8 +325,8 @@ func (t types) copyDelete(i int) (newTypes types) {
 	return
 }
 
-func (c Table[C]) len() int {
-	return len(c)
+func (c *Table[C]) len() int {
+	return len(*c)
 }
 
 func (c *Table[C]) appendFrom(other column, row int) {
@@ -371,4 +342,8 @@ func (c *Table[C]) swapDelete(i int) {
 func (c *Table[C]) append(data C) int {
 	*c = append(*c, data)
 	return len(*c) - 1
+}
+
+func (c *Table[C]) newEmpty() column {
+	return new(Table[C])
 }

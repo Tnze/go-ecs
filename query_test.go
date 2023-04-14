@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func ExampleFilter_All() {
+func ExampleQueryAll() {
 	w := NewWorld()
 
 	// Create 10 entities.
@@ -36,8 +36,8 @@ func ExampleFilter_All() {
 	// c2:    [      3 4 5 6      ]
 	// c1&c2: [      3 4          ]
 
-	// Query all entities which have both c1 and c2.
-	Filter{c1, c2}.All(w, func(entities Table[Entity], data []any) {
+	// CachedQuery all entities which have both c1 and c2.
+	QueryAll(c1, c2).Run(w, func(entities Table[Entity], data []any) {
 		// The type of the data's element is `Table[T]`,
 		// which can be converted to `[]T` only after type assertion.
 		fmt.Println([]int(*data[0].(*Table[int])))
@@ -47,7 +47,7 @@ func ExampleFilter_All() {
 	// [3 4]
 }
 
-func ExampleFilter_Any() {
+func ExampleQueryAny() {
 	w := NewWorld()
 
 	// Create 10 entities.
@@ -75,9 +75,9 @@ func ExampleFilter_Any() {
 	// c2:    [      3 4 5 6      ]
 	// c1&c2: [      3 4          ]
 
-	// Query all entities which have both c1 and c2.
+	// CachedQuery all entities which have both c1 and c2.
 	var result []int
-	Filter{c1, c2}.Any(w, func(entities Table[Entity], data []any) {
+	QueryAny(c1, c2).Run(w, func(entities Table[Entity], data []any) {
 		// The type of the data's element is `Table[T]`,
 		// which can be converted to `[]T` only after type assertion.
 		result = append(result, []int(*data[0].(*Table[int]))...)
@@ -89,7 +89,7 @@ func ExampleFilter_Any() {
 	// [0 1 2 3 4 5 6]
 }
 
-func TestFilter(t *testing.T) {
+func TestQuery(t *testing.T) {
 	w := NewWorld()
 
 	// Create 10 entities.
@@ -114,14 +114,14 @@ func TestFilter(t *testing.T) {
 	// c1: [0 1 2 3 4          ]
 	// c2: [      3 4 5 6      ]
 
-	filters := []Filter{{c1}, {c2}, {c1, c2}}
+	filters := [][]Component{{c1}, {c2}, {c1, c2}}
 
 	t.Run("All", func(t *testing.T) {
 		var result []int
 		wants := [][]int{{0, 1, 2, 3, 4}, {3, 4, 5, 6}, {3, 4}}
 		for i, want := range wants {
 			result = result[:0]
-			filters[i].All(w, func(entities Table[Entity], data []any) {
+			QueryAll(filters[i]...).Run(w, func(entities Table[Entity], data []any) {
 				result = append(result, []int(*data[0].(*Table[int]))...)
 			})
 			// The order of the results is not guaranteed, so sort them before validation
@@ -136,7 +136,7 @@ func TestFilter(t *testing.T) {
 		wants := [][]int{{0, 1, 2, 3, 4}, {3, 4, 5, 6}, {0, 1, 2, 3, 4, 5, 6}}
 		for i, want := range wants {
 			result = result[:0]
-			filters[i].Any(w, func(entities Table[Entity], data []any) {
+			QueryAny(filters[i]...).Run(w, func(entities Table[Entity], data []any) {
 				result = append(result, []int(*data[0].(*Table[int]))...)
 			})
 			// The order of the results is not guaranteed, so sort them before validation
@@ -149,7 +149,7 @@ func TestFilter(t *testing.T) {
 }
 
 func BenchmarkFilter_All(b *testing.B) {
-	const EntityCount = 1000_000
+	const EntityCount = 1_000_000
 	const ComponentCount = 16
 	const QueryCount = 3
 
@@ -184,14 +184,14 @@ func BenchmarkFilter_All(b *testing.B) {
 	b.Run("uncached", func(b *testing.B) {
 		var tableMatched int64
 		for i := 0; i < b.N; i++ {
-			Filter(components[:QueryCount]).All(w, func(entities Table[Entity], data []any) {
+			QueryAll(components[:QueryCount]...).Run(w, func(entities Table[Entity], data []any) {
 				tableMatched++
 			})
 		}
 		b.ReportMetric(float64(b.Elapsed().Nanoseconds()/(tableMatched)), "ns/table")
 	})
 	b.Run("cached", func(b *testing.B) {
-		cachedQuery := Filter(components[:QueryCount]).CacheAll(w)
+		cachedQuery := QueryAll(components[:QueryCount]...).Cache(w)
 		b.ResetTimer()
 
 		var tableMatched int64

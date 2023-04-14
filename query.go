@@ -1,70 +1,66 @@
 package ecs
 
-type Filter []Component
+type Filter func(*World, *archetype, *[]int) bool
 
-func (f Filter) All(w *World, h func(entities Table[Entity], data []any)) {
-	data := make([]any, 0, len(f))
-a:
+func (f Filter) Cache(w *World) *CachedQuery {
+	q := &CachedQuery{filter: f}
+	var columns []int
 	for _, a := range w.archetypes {
-		data = data[:0]
-		for _, c := range f {
-			col, ok := w.components[c][a]
-			if !ok {
-				continue a
-			}
-			if col >= 0 {
-				data = append(data, a.comps[col])
-			}
+		columns = columns[:0]
+		if q.filter(w, a, &columns) {
+			columns2 := make([]int, len(columns))
+			copy(columns2, columns)
+			q.columns = append(q.columns, columns2)
+			q.tables = append(q.tables, a)
 		}
-		h(a.entities, data)
 	}
+	return q
 }
 
-func (f Filter) Any(w *World, h func(entities Table[Entity], data []any)) {
-	data := make([]any, 0, len(f))
+func (f Filter) Run(w *World, h func(entities Table[Entity], data []any)) {
+	var columns []int
+	var data []any
 	for _, a := range w.archetypes {
-		var pass bool
+		columns = columns[:0]
 		data = data[:0]
-		for _, c := range f {
-			if col, ok := w.components[c][a]; ok {
-				pass = true
-				if col >= 0 {
-					data = append(data, a.comps[col])
-				}
+		if f(w, a, &columns) {
+			for _, col := range columns {
+				data = append(data, a.comps[col])
 			}
-		}
-		if pass {
 			h(a.entities, data)
 		}
 	}
 }
 
-func (f Filter) CacheAll(w *World) *Query {
-	var q Query
-a:
-	for _, a := range w.archetypes {
-		columns := make([]int, len(f))
-		for i, c := range f {
+func QueryAll(comps ...Component) Filter {
+	return func(w *World, a *archetype, out *[]int) bool {
+		for _, c := range comps {
 			col, ok := w.components[c][a]
 			if !ok {
-				continue a
+				return false
 			}
-			columns[i] = col
+			*out = append(*out, col)
 		}
-		q.columns = append(q.columns, columns)
-		q.tables = append(q.tables, a)
+		return true
 	}
-	q.world = w
-	q.filter = f
-	q.data = make([]any, 0, len(f))
-	return &q
 }
 
-// Query is cached filter
+func QueryAny(comps ...Component) Filter {
+	return func(w *World, a *archetype, out *[]int) (pass bool) {
+		for _, c := range comps {
+			if col, ok := w.components[c][a]; ok {
+				pass = true
+				*out = append(*out, col)
+			}
+		}
+		return
+	}
+}
+
+// CachedQuery is cached filter
 //
 // BUG(Tnze): Currently the query doesn't get updated when a new archetype is created.
-type Query struct {
-	world   *World
+type CachedQuery struct {
 	filter  Filter
 	tables  []*archetype
 	columns [][]int
@@ -72,13 +68,11 @@ type Query struct {
 	data []any
 }
 
-func (q *Query) Run(h func(entities Table[Entity], data []any)) {
+func (q *CachedQuery) Run(h func(entities Table[Entity], data []any)) {
 	data := q.data[:0]
 	for i, a := range q.tables {
 		for _, col := range q.columns[i] {
-			if col >= 0 {
-				data = append(data, a.comps[col])
-			}
+			data = append(data, a.comps[col])
 		}
 		h(a.entities, data)
 	}
