@@ -247,34 +247,6 @@ func SetComp[C any](w *World, e Entity, c Component, data C) {
 	rec.row = row
 }
 
-func moveEntity(e Entity, dst *archetype, srcRec *entityRecord, list types) (newRow int) {
-	// Copy components
-	srcCol, dstCol := 0, 0
-	for _, t := range list {
-		for ; srcRec.at.types[srcCol].Component != t.Component; srcCol++ {
-			// The types are ordered, and srcRec.at must contain all components in the list.
-			// So we surely will find the correct index, and the access to types[i] won't panic.
-		}
-		for ; dst.types[dstCol].Component != t.Component; dstCol++ {
-			// So do here.
-		}
-		if src := srcRec.at.comps[srcCol]; src != nil {
-			dst.comps[dstCol].appendFrom(src, srcRec.row)
-		}
-	}
-	// Delete everything in src
-	newRow = dst.entities.append(e)
-	dst.records.append(srcRec)
-	srcRec.at.entities.swapDelete(srcRec.row)
-	srcRec.at.records.swapDelete(srcRec.row)
-	for _, s := range srcRec.at.comps {
-		if s != nil {
-			s.swapDelete(srcRec.row)
-		}
-	}
-	return
-}
-
 // DelComp removes the Component of an Entity.
 // If the Entity doesn't have the Component, nothing will happen.
 func DelComp(w *World, e Entity, c Component) {
@@ -307,6 +279,36 @@ func DelComp(w *World, e Entity, c Component) {
 
 	rec.at = target
 	rec.row = row
+}
+
+func moveEntity(e Entity, dst *archetype, srcRec *entityRecord, list types) (newRow int) {
+	// Copy components
+	srcCol, dstCol := 0, 0
+	for _, t := range list {
+		for srcRec.at.types[srcCol].Component != t.Component {
+			// The types are ordered, and srcRec.at must contain all components in the list.
+			// So we surely will find the correct index, and the access to types[i] won't panic.
+			srcCol++
+		}
+		for dst.types[dstCol].Component != t.Component {
+			// So do here.
+			dstCol++
+		}
+		if src := srcRec.at.comps[srcCol]; src != nil {
+			dst.comps[dstCol].appendFrom(src, srcRec.row)
+		}
+	}
+	// Delete everything in src
+	newRow = dst.entities.append(e)
+	dst.records.append(srcRec)
+	srcRec.at.entities.swapDelete(srcRec.row)
+	srcRec.at.records.swapDelete(srcRec.row)
+	for _, s := range srcRec.at.comps {
+		if s != nil {
+			s.swapDelete(srcRec.row)
+		}
+	}
+	return
 }
 
 // Get gets the data of a Component of an Entity.
