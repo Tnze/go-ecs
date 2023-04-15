@@ -4,15 +4,13 @@ type Filter func(*World, *archetype, *[]int) bool
 
 func (f Filter) Cache(w *World) *CachedQuery {
 	q := &CachedQuery{filter: f}
-	var columns []int
+	var out []int
 	for _, a := range w.archetypes {
-		columns = columns[:0]
-		if !q.filter(w, a, &columns) {
+		out = make([]int, 0, len(out))
+		if !f(w, a, &out) {
 			continue
 		}
-		columns2 := make([]int, len(columns))
-		copy(columns2, columns)
-		q.columns = append(q.columns, columns2)
+		q.columns = append(q.columns, out)
 		q.tables = append(q.tables, a)
 	}
 	return q
@@ -80,6 +78,7 @@ type CachedQuery struct {
 func (q *CachedQuery) Run(h func(entities Table[Entity], data []any)) {
 	data := q.data[:0]
 	for i, a := range q.tables {
+		data = data[:0]
 		for _, col := range q.columns[i] {
 			data = append(data, a.comps[col])
 		}

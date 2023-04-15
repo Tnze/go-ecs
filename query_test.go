@@ -80,6 +80,21 @@ func TestFilter_Run(t *testing.T) {
 	t.Run("All", testAll)
 	wants = [][]int{{0, 1, 2, 3, 4, 6}, {4, 5, 6}, {0, 1, 2, 3, 4, 5, 6}}
 	t.Run("Any", testAny)
+
+	c3 := NewComponent(w)
+	for i, e := range entities[5:8] {
+		SetComp(w, e, c3, i+5)
+	}
+
+	// id: [0 1 2 3 4 5 6 7 8 9]
+	// c1: [0 1 2 3 4   6      ]
+	// c2: [      _ 4 5 6      ]
+	// c3: [          5 6 7    ]
+
+	wants = [][]int{{0, 1, 2, 3, 4, 6}, {4, 5, 6}, {4, 6}}
+	t.Run("All", testAll)
+	wants = [][]int{{0, 1, 2, 3, 4, 6}, {4, 5, 6}, {0, 1, 2, 3, 4, 5, 6}}
+	t.Run("Any", testAny)
 }
 
 func TestFilter_Cache(t *testing.T) {
@@ -104,35 +119,49 @@ func TestFilter_Cache(t *testing.T) {
 
 	// Create the cached query
 	queryBoth := QueryAll(c1, c2).Cache(w)
-
-	// Test the basic query
 	var result []int
-	queryBoth.Run(func(entities Table[Entity], data []any) {
-		result = append(result, []int(*data[0].(*Table[int]))...)
-	})
-	sort.Ints(result)
+	var want []int
 
-	want := []int{3, 4}
-	if !reflect.DeepEqual(result, want) {
-		t.Errorf("get: %v, want: %v", result, want)
+	judge := func() {
+		result = result[:0]
+		queryBoth.Run(func(entities Table[Entity], data []any) {
+			result = append(result, []int(*data[0].(*Table[int]))...)
+		})
+		sort.Ints(result)
+		if !reflect.DeepEqual(result, want) {
+			t.Errorf("get: %v, want: %v", result, want)
+		}
 	}
 
-	// Test if our cached query gets up to date when entities are moved
+	// Test the basic query
+	want = []int{3, 4}
+	judge()
+
+	// Test if the cached query gets up to date when entities are moved
 	SetComp(w, entities[6], c1, 6)
 	DelComp(w, entities[3], c2)
+
 	// id: [0 1 2 3 4 5 6 7 8 9]
 	// c1: [0 1 2 3 4   6      ]
 	// c2: [      _ 4 5 6      ]
-	result = result[:0]
-	queryBoth.Run(func(entities Table[Entity], data []any) {
-		result = append(result, []int(*data[0].(*Table[int]))...)
-	})
-	sort.Ints(result)
 
 	want = []int{4, 6}
-	if !reflect.DeepEqual(result, want) {
-		t.Errorf("get: %v, want: %v", result, want)
+	judge()
+
+	// Test if the cached query gets up to date when a new archetype is created.
+	c3 := NewComponent(w)
+	for i, e := range entities[5:8] {
+		SetComp(w, e, c3, i+5)
 	}
+
+	// id: [0 1 2 3 4 5 6 7 8 9]
+	// c1: [0 1 2 3 4   6      ]
+	// c2: [      _ 4 5 6      ]
+	// c3: [          5 6 7    ]
+
+	want = []int{4, 6}
+	queryBoth = QueryAll(c1, c2).Cache(w)
+	judge()
 }
 
 func BenchmarkFilter_All(b *testing.B) {
