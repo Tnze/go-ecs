@@ -55,7 +55,7 @@ type Entity struct {
 }
 
 func (e *Entity) Name() *string {
-	return ecs.Get[string](e.w.World, e.Entity, e.w.NameComp)
+	return ecs.GetComp[string](e.w.World, e.Entity, e.w.NameComp)
 }
 
 func (e *Entity) Del() {
@@ -80,7 +80,7 @@ func GetComp[C any](e Entity) (data *C) {
 	if !ok {
 		return nil
 	}
-	return ecs.Get[C](e.w.World, e.Entity, c)
+	return ecs.GetComp[C](e.w.World, e.Entity, c)
 }
 
 func AddComp[C any](e Entity) {

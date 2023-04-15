@@ -10,7 +10,7 @@ func Type(w *World, e Entity, nameComp Component) string {
 	rec := w.entities[e]
 	compNames := make([]string, len(rec.at.types))
 	for i, v := range rec.at.types {
-		switch name := Get[string](w, v.Entity, nameComp); name {
+		switch name := GetComp[string](w, v.Entity, nameComp); name {
 		case nil:
 			// type of v.tableType has to be `*Table[T]` which .Elem is `Table[T]` which .Elem is `T`
 			compNames[i] = v.tableType.Elem().Elem().Name()

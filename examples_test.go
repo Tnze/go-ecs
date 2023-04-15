@@ -35,7 +35,7 @@ func ExampleEntity_basic() {
 	ecs.SetComp(w, bob, walking, Walking{})
 
 	// Get the value for the Position component
-	pos := ecs.Get[Position](w, bob, position)
+	pos := ecs.GetComp[Position](w, bob, position)
 	fmt.Printf("{%f, %f}\n", pos.x, pos.y)
 
 	// Overwrite the value of the Position component
@@ -54,7 +54,7 @@ func ExampleEntity_basic() {
 	ecs.QueryAll(position).Run(w, func(entities ecs.Table[ecs.Entity], data []any) {
 		p := *data[0].(*ecs.Table[Position])
 		for i, e := range entities {
-			entityName := ecs.Get[string](w, e, name)
+			entityName := ecs.GetComp[string](w, e, name)
 			fmt.Printf("%s: {%f, %f}\n", *entityName, p[i].x, p[i].y)
 		}
 	})
@@ -140,7 +140,7 @@ func ExampleQueryAny() {
 	ecs.QueryAny(c1, c2).Run(w, func(entities ecs.Table[ecs.Entity], data []any) {
 		// The type of the data's element is `Table[T]`,
 		// which can be converted to `[]T` only after type assertion.
-		result = append(result, []int(*data[0].(*ecs.Table[int]))...)
+		result = append(result, *data[0].(*ecs.Table[int])...)
 	})
 	sort.Ints(result)
 	fmt.Println(result)

@@ -111,7 +111,7 @@ func NewWorld() (w *World) {
 		archetypes: make(map[uint64]*archetype),
 		components: make(map[Component]map[*archetype]int),
 	}
-	w.zero = newArchetype(w, nil, types{}.sortHash(&w.hash))
+	w.zero = newArchetype(w, types(nil), types(nil).sortHash(&w.hash))
 	return
 }
 
@@ -173,7 +173,7 @@ func newArchetype(w *World, t types, hash uint64) (a *archetype) {
 	return
 }
 
-// AddComp adds the Component to Entity as a label, with no data.
+// AddComp adds the Component to Entity as a tag, without underlying content
 func AddComp(w *World, e Entity, c Component) {
 	rec := w.entities[e]
 	// If the archetype of e already contains c.
@@ -208,15 +208,16 @@ func AddComp(w *World, e Entity, c Component) {
 	rec.row = row
 }
 
+// HasComp reports whether the Entity has the Component.
 func HasComp(w *World, e Entity, c Component) bool {
 	rec := w.entities[e]
 	_, ok := w.components[c][rec.at]
 	return ok
 }
 
-// SetComp sets the data of a Component of an Entity.
+// SetComp adds the Component and its content to Entity.
 //
-// If the Entity already has the Component, the data will be overridden.
+// If the Entity already has the Component, the content will be overridden.
 // If the Entity doesn't have the Component, the Component will be added.
 //
 // This function panics if the type of data doesn't match others of the same Component.
@@ -321,9 +322,9 @@ func moveEntity(e Entity, dst *archetype, srcRec *entityRecord, list types) (new
 	return
 }
 
-// Get gets the data of a Component of an Entity.
+// GetComp gets the data of a Component of an Entity.
 // If the Entity doesn't have the Component, nil will be returned.
-func Get[C any](w *World, e Entity, c Component) (data *C) {
+func GetComp[C any](w *World, e Entity, c Component) (data *C) {
 	rec := w.entities[e]
 	if column, ok := w.components[c][rec.at]; ok {
 		return &(*rec.at.comps[column].(*Table[C]))[rec.row]
@@ -348,9 +349,11 @@ func (i *idManager) put(id uint64) {
 
 func (t types) sortHash(hash *maphash.Hash) uint64 {
 	// sort the component list
-	sort.Slice(t, func(i, j int) bool {
-		return t[i].Component.Entity < t[j].Component.Entity
-	})
+	if t != nil {
+		sort.Slice(t, func(i, j int) bool {
+			return t[i].Component.Entity < t[j].Component.Entity
+		})
+	}
 	// calculate hash
 	hash.Reset()
 	for i := range t {
