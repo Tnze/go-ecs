@@ -2,20 +2,6 @@ package ecs
 
 type Filter func(*World, *archetype, *[]int) bool
 
-func (f Filter) Cache(w *World) *CachedQuery {
-	q := &CachedQuery{filter: f}
-	var out []int
-	for _, a := range w.archetypes {
-		out = make([]int, 0, len(out))
-		if !f(w, a, &out) {
-			continue
-		}
-		q.columns = append(q.columns, out)
-		q.tables = append(q.tables, a)
-	}
-	return q
-}
-
 func (f Filter) Run(w *World, h func(entities Table[Entity], data []any)) {
 	var columns []int
 	var data []any
@@ -63,9 +49,30 @@ func QueryAny(comps ...Component) Filter {
 	}
 }
 
+func (f Filter) Cache(w *World) (q *CachedQuery) {
+	var columns [][]int
+	var tables []*archetype
+
+	var out []int
+	for _, a := range w.archetypes {
+		out = make([]int, 0, len(out))
+		if f(w, a, &out) {
+			columns = append(columns, out)
+			tables = append(tables, a)
+		}
+	}
+
+	q = &CachedQuery{
+		filter:  f,
+		tables:  tables,
+		columns: columns,
+		data:    nil,
+	}
+	q.row = w.queries.append(q)
+	return q
+}
+
 // CachedQuery is cached filter
-//
-// TODO(Tnze): Currently the query doesn't get updated when a new archetype is created.
 type CachedQuery struct {
 	filter  Filter
 	tables  []*archetype // All archetypes in the world that matches the filter.
@@ -73,6 +80,7 @@ type CachedQuery struct {
 
 	// Cached arguments for the callback, to avoid allocating memory every time Run is called.
 	data []any
+	row  int // self index in World.queries
 }
 
 func (q *CachedQuery) Run(h func(entities Table[Entity], data []any)) {
@@ -85,4 +93,24 @@ func (q *CachedQuery) Run(h func(entities Table[Entity], data []any)) {
 		h(a.entities, data)
 	}
 	q.data = data
+}
+
+func (q *CachedQuery) update(w *World, a *archetype) {
+	var numOfCol int
+	if len(q.columns) > 0 {
+		numOfCol = len(q.columns[0])
+	}
+
+	out := make([]int, 0, numOfCol)
+	if q.filter(w, a, &out) {
+		q.columns = append(q.columns, out)
+		q.tables = append(q.tables, a)
+	}
+}
+
+func (q *CachedQuery) Free(w *World) {
+	w.queries.swapDelete(q.row)
+	if q.row < len(w.queries) {
+		w.queries[q.row].row = q.row
+	}
 }

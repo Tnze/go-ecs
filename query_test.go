@@ -160,7 +160,6 @@ func TestFilter_Cache(t *testing.T) {
 	// c3: [          5 6 7    ]
 
 	want = []int{4, 6}
-	queryBoth = QueryAll(c1, c2).Cache(w)
 	judge()
 }
 

@@ -40,6 +40,11 @@ type (
 		// And if col == -1, archetype a has component c but doesn't contain any data,
 		// otherwise the col is the index of the component's storage in the archetype.
 		components map[Component]map[*archetype]int
+
+		// For high performance, we cache the queries.
+		// But these caches will get outdated when new archetypes are created.
+		// We register all queries created here, and update them when new archetypes are created.
+		queries Table[*CachedQuery]
 	}
 
 	// An Entity is a unique thing in the world, and is represented by a 64-bit id.
@@ -160,6 +165,11 @@ func newArchetype(w *World, t types, hash uint64) (a *archetype) {
 		w.components[v.Component][a] = i
 	}
 	w.archetypes[hash] = a
+
+	// update queries
+	for _, q := range w.queries {
+		q.update(w, a)
+	}
 	return
 }
 
