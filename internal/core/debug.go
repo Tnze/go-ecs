@@ -1,4 +1,4 @@
-package ecs
+package core
 
 import (
 	"sort"
@@ -7,13 +7,13 @@ import (
 
 func Type(w *World, e Entity, nameComp Component) string {
 	var sb strings.Builder
-	rec := w.entities[e]
-	compNames := make([]string, len(rec.at.types))
-	for i, v := range rec.at.types {
+	rec := w.Entities[e]
+	compNames := make([]string, len(rec.AT.Types))
+	for i, v := range rec.AT.Types {
 		switch name := GetComp[string](w, v.Entity, nameComp); name {
 		case nil:
-			// type of v.tableType has to be `*Table[T]` which .Elem is `Table[T]` which .Elem is `T`
-			compNames[i] = v.tableType.Elem().Elem().Name()
+			// type of v.TableType has to be `*Table[T]` which .Elem is `Table[T]` which .Elem is `T`
+			compNames[i] = v.TableType.Elem().Elem().Name()
 		default:
 			compNames[i] = *name
 		}

@@ -47,12 +47,12 @@ func ExampleEntity_basic() {
 	ecs.SetComp(w, alice, position, Position{10, 20})
 	ecs.SetComp(w, alice, walking, Walking{})
 
-	// Print all the components the entity has. This will output:
+	// Print all the Components the entity has. This will output:
 	//    Position, Walking, (Identifier,Name)
 	fmt.Printf("[%s]\n", ecs.Type(w, alice, name))
 	// Iterate all entities with Position
-	ecs.QueryAll(position).Run(w, func(entities ecs.Table[ecs.Entity], data []any) {
-		p := *data[0].(*ecs.Table[Position])
+	ecs.QueryAll(position).Run(w, func(entities []ecs.Entity, data []any) {
+		p := *data[0].(*[]Position)
 		for i, e := range entities {
 			entityName := ecs.GetComp[string](w, e, name)
 			fmt.Printf("%s: {%f, %f}\n", *entityName, p[i].x, p[i].y)
@@ -77,11 +77,11 @@ func ExampleQueryAll() {
 		entities[i] = ecs.NewEntity(w)
 	}
 
-	// Create 2 components.
+	// Create 2 Components.
 	c1 := ecs.NewComponent(w)
 	c2 := ecs.NewComponent(w)
 
-	// Add components to entities.
+	// Add Components to entities.
 	for i, e := range entities[:5] {
 		ecs.SetComp(w, e, c1, i)
 	}
@@ -97,10 +97,10 @@ func ExampleQueryAll() {
 	// c1&c2: [      3 4          ]
 
 	// CachedQuery all entities which have both c1 and c2.
-	ecs.QueryAll(c1, c2).Run(w, func(entities ecs.Table[ecs.Entity], data []any) {
+	ecs.QueryAll(c1, c2).Run(w, func(entities []ecs.Entity, data []any) {
 		// The type of the data's element is `Table[T]`,
 		// which can be converted to `[]T` only after type assertion.
-		fmt.Println([]int(*data[0].(*ecs.Table[int])))
+		fmt.Println(*data[0].(*[]int))
 	})
 
 	// Output:
@@ -116,11 +116,11 @@ func ExampleQueryAny() {
 		entities[i] = ecs.NewEntity(w)
 	}
 
-	// Create 2 components.
+	// Create 2 Components.
 	c1 := ecs.NewComponent(w)
 	c2 := ecs.NewComponent(w)
 
-	// Add components to entities.
+	// Add Components to entities.
 	for i, e := range entities[:5] {
 		ecs.SetComp(w, e, c1, i)
 	}
@@ -137,10 +137,10 @@ func ExampleQueryAny() {
 
 	// CachedQuery all entities which have both c1 and c2.
 	var result []int
-	ecs.QueryAny(c1, c2).Run(w, func(entities ecs.Table[ecs.Entity], data []any) {
+	ecs.QueryAny(c1, c2).Run(w, func(entities []ecs.Entity, data []any) {
 		// The type of the data's element is `Table[T]`,
 		// which can be converted to `[]T` only after type assertion.
-		result = append(result, *data[0].(*ecs.Table[int])...)
+		result = append(result, *data[0].(*[]int)...)
 	})
 	sort.Ints(result)
 	fmt.Println(result)

@@ -1,4 +1,4 @@
-package ecs
+package core
 
 import (
 	"hash/maphash"
@@ -9,42 +9,42 @@ import (
 
 type (
 	// The World is the container for all ECS data.
-	// It stores the entities and their components, does queries and runs systems.
+	// It stores the entities and their Components, does queries and runs systems.
 	//
 	// --flecs.dev
 	World struct {
-		idManager
+		IDManager
 		hash maphash.Hash // used for hash archetypes' type
 
-		// The default archetype for newly created entities, which contains no components.
-		zero *archetype
+		// The default archetype for newly created entities, which contains no Components.
+		Zero *Archetype
 
-		// All entities in the World, including components.
-		// Records their archetype's pointer and the index of the comps belonging to the entity.
-		entities map[Entity]*entityRecord
+		// All entities in the World, including Components.
+		// Records their archetype's pointer and the index of the Comps belonging to the entity.
+		Entities map[Entity]*entityRecord
 
 		// All archetypes in the World.
-		// The key of the map is the hash of the archetype's types.
+		// The key of the map is the hash of the archetype's Types.
 		// And the value is the archetype's pointer.
-		archetypes map[uint64]*archetype
+		Archetypes map[uint64]*Archetype
 
 		// This field stores maps for each component.
 		// Each map contains a list of archetypes that have the component.
-		// And the component's corresponding storage index in the archetype.
+		// And the component's corresponding Storage index in the archetype.
 		//
 		// We can check if an archetype has a component by looking up the map.
 		//
 		// For any Component c and archetype a:
-		//	col, ok := components[c][a]
+		//	col, ok := Components[c][a]
 		// If ok == true, then archetype a has component c, otherwise it doesn't.
 		// And if col == -1, archetype a has component c but doesn't contain any data,
-		// otherwise the col is the index of the component's storage in the archetype.
-		components map[Component]map[*archetype]int
+		// otherwise the col is the index of the component's Storage in the archetype.
+		Components map[Component]map[*Archetype]int
 
 		// For high performance, we cache the queries.
 		// But these caches will get outdated when new archetypes are created.
 		// We register all queries created here, and update them when new archetypes are created.
-		queries Table[*CachedQuery]
+		Queries Table[*CachedQuery]
 	}
 
 	// An Entity is a unique thing in the world, and is represented by a 64-bit id.
@@ -63,111 +63,112 @@ type (
 	// --flecs.dev
 	Component struct{ Entity }
 
-	idManager struct {
-		nextID   uint64
-		freelist []uint64
+	IDManager struct {
+		NextID   uint64
+		Freelist []uint64
 	}
 	entityRecord struct {
-		at  *archetype
-		row int
+		AT  *Archetype
+		Row int
 	}
-	archetype struct {
-		types
+	Archetype struct {
+		Types
 		entities Table[Entity]
 		records  Table[*entityRecord]
-		comps    []storage
+		Comps    []Storage
 
 		// A list of edges to other archetypes.
-		// Used to find the next archetype when adding or removing components.
-		edges map[Component]archetypeEdge
+		// Used to find the next archetype when adding or removing Components.
+		edges map[Component]ArchetypeEdge
 	}
 
-	// A list of components.
+	// Types is list of Components.
 	// It's sorted and able to be hashed.
 	// Allowing us to find the archetype by the hash of its type.
-	types         []componentMeta
-	componentMeta struct {
+	Types         []ComponentMeta
+	ComponentMeta struct {
 		Component
 		// If the component's corresponding data has type T,
 		// this stores the reflect.Type of Table[T].
 		// We need this because, when creating new archetypes,
-		// we need to create new storage for the components.
-		tableType reflect.Type
+		// we need to create new Storage for the Components.
+		TableType reflect.Type
 	}
-	archetypeEdge struct {
-		add, del *archetype
+	ArchetypeEdge struct {
+		add, del *Archetype
 	}
-	storage interface {
-		appendFrom(other storage, column int)
+	Storage interface {
+		appendFrom(other Storage, column int)
 		swapDelete(i int)
+		toSlice() any
 	}
 	Table[C any] []C
 )
 
-// NewWorld creates a new empty World, with the default components.
+// NewWorld creates a new empty World, with the default Components.
 func NewWorld() (w *World) {
 	w = &World{
-		entities:   make(map[Entity]*entityRecord),
-		archetypes: make(map[uint64]*archetype),
-		components: make(map[Component]map[*archetype]int),
+		Entities:   make(map[Entity]*entityRecord),
+		Archetypes: make(map[uint64]*Archetype),
+		Components: make(map[Component]map[*Archetype]int),
 	}
-	w.zero = newArchetype(w, types(nil), types(nil).sortHash(&w.hash))
+	w.Zero = newArchetype(w, Types(nil), Types(nil).sortHash(&w.hash))
 	return
 }
 
-// NewEntity creates a new Entity in the World, without any components.
+// NewEntity creates a new Entity in the World, without any Components.
 func NewEntity(w *World) (e Entity) {
 	e = Entity(w.get())
 	r := new(entityRecord)
-	r.at = w.zero
-	r.row = w.zero.entities.append(e)
-	w.zero.records.append(r)
-	w.entities[e] = r
+	r.AT = w.Zero
+	r.Row = w.Zero.entities.append(e)
+	w.Zero.records.append(r)
+	w.Entities[e] = r
 	return
 }
 
 func DelEntity(w *World, e Entity) {
-	rec := w.entities[e]
-	rec.at.entities.swapDelete(rec.row)
-	rec.at.records.swapDelete(rec.row)
-	for _, s := range rec.at.comps {
+	rec := w.Entities[e]
+	rec.AT.entities.swapDelete(rec.Row)
+	rec.AT.records.swapDelete(rec.Row)
+	for _, s := range rec.AT.Comps {
 		if s != nil {
-			s.swapDelete(rec.row)
+			s.swapDelete(rec.Row)
 		}
 	}
-	if rec.row != len(rec.at.entities) {
-		rec.at.records[rec.row].row = rec.row
+	if rec.Row != len(rec.AT.entities) {
+		rec.AT.records[rec.Row].Row = rec.Row
 	}
-	delete(w.entities, e)
-	w.idManager.put(uint64(e))
+	delete(w.Entities, e)
+	w.IDManager.put(uint64(e))
 }
 
 // NewComponent creates a new Component in the World.
 // The data type associated with the Component will be bind when the first data is set.
 func NewComponent(w *World) (c Component) {
 	c = Component{NewEntity(w)}
-	w.components[c] = make(map[*archetype]int)
+	w.Components[c] = make(map[*Archetype]int)
 	return
 }
 
 // The hash can be calculated by t.sortHash(&w.hash).
 // We Always calculate it before calling this function, so just pass it in.
-func newArchetype(w *World, t types, hash uint64) (a *archetype) {
-	a = &archetype{
-		types: t,
-		comps: make([]storage, len(t)),
-		edges: make(map[Component]archetypeEdge),
+func newArchetype(w *World, t Types, hash uint64) (a *Archetype) {
+	a = &Archetype{
+		Types: t,
+		Comps: make([]Storage, len(t)),
+		edges: make(map[Component]ArchetypeEdge),
 	}
 	for i, v := range t {
-		if v.tableType != nil {
-			a.comps[i] = reflect.New(v.tableType.Elem()).Interface().(storage)
+		if v.TableType != nil {
+			a.Comps[i] = reflect.New(v.TableType.Elem()).Interface().(Storage)
 		}
-		w.components[v.Component][a] = i
+		w.Components[v.Component][a] = i
 	}
-	w.archetypes[hash] = a
+	w.Archetypes[hash] = a
 
 	// update queries
-	for _, q := range w.queries {
+	for _, q := range w.Queries {
 		q.update(w, a)
 	}
 	return
@@ -175,43 +176,43 @@ func newArchetype(w *World, t types, hash uint64) (a *archetype) {
 
 // AddComp adds the Component to Entity as a tag, without underlying content
 func AddComp(w *World, e Entity, c Component) {
-	rec := w.entities[e]
+	rec := w.Entities[e]
 	// If the archetype of e already contains c.
 	// Override the data and return.
-	if _, ok := w.components[c][rec.at]; ok {
+	if _, ok := w.Components[c][rec.AT]; ok {
 		return
 	}
-	// Lookup archetypeEdge for shortcuts
-	edge := rec.at.edges[c]
+	// Lookup ArchetypeEdge for shortcuts
+	edge := rec.AT.edges[c]
 	target := edge.add
 	if target == nil {
 		// We don't have shortcuts yet. Use the hash way.
 		var ok bool
-		newTypes := rec.at.types.copyAppend(c, nil)
+		newTypes := rec.AT.Types.copyAppend(c, nil)
 		hash := newTypes.sortHash(&w.hash)
-		if target, ok = w.archetypes[hash]; !ok {
+		if target, ok = w.Archetypes[hash]; !ok {
 			target = newArchetype(w, newTypes, hash)
 		}
 		// Save to the shortcuts
 		edge.add = target
-		rec.at.edges[c] = edge
+		rec.AT.edges[c] = edge
 	}
 	// Move entity to the new archetype
-	row := moveEntity(e, target, rec, rec.at.types)
-	// Because we move the last entity in rec.at.entities.
-	// We have to update its row value in w.entities.
-	if rec.row != len(rec.at.entities) {
-		rec.at.records[rec.row].row = rec.row
+	row := moveEntity(e, target, rec, rec.AT.Types)
+	// Because we move the last entity in rec.AT.entities.
+	// We have to update its Row value in w.entities.
+	if rec.Row != len(rec.AT.entities) {
+		rec.AT.records[rec.Row].Row = rec.Row
 	}
 
-	rec.at = target
-	rec.row = row
+	rec.AT = target
+	rec.Row = row
 }
 
 // HasComp reports whether the Entity has the Component.
 func HasComp(w *World, e Entity, c Component) bool {
-	rec := w.entities[e]
-	_, ok := w.components[c][rec.at]
+	rec := w.Entities[e]
+	_, ok := w.Components[c][rec.AT]
 	return ok
 }
 
@@ -222,101 +223,101 @@ func HasComp(w *World, e Entity, c Component) bool {
 //
 // This function panics if the type of data doesn't match others of the same Component.
 func SetComp[C any](w *World, e Entity, c Component, data C) {
-	rec := w.entities[e]
+	rec := w.Entities[e]
 	// If the archetype of e already contains c.
 	// Override the data and return.
-	if col, ok := w.components[c][rec.at]; ok {
-		(*rec.at.comps[col].(*Table[C]))[rec.row] = data
+	if col, ok := w.Components[c][rec.AT]; ok {
+		(*rec.AT.Comps[col].(*Table[C]))[rec.Row] = data
 		return
 	}
-	// Lookup archetypeEdge for shortcuts
-	edge := rec.at.edges[c]
+	// Lookup ArchetypeEdge for shortcuts
+	edge := rec.AT.edges[c]
 	target := edge.add
 	if target == nil {
 		// We don't have shortcuts yet. Use the hash way.
 		var tmpS *Table[C]
 		var ok bool
-		newTypes := rec.at.types.copyAppend(c, reflect.TypeOf(tmpS))
+		newTypes := rec.AT.Types.copyAppend(c, reflect.TypeOf(tmpS))
 		hash := newTypes.sortHash(&w.hash)
-		if target, ok = w.archetypes[hash]; !ok {
+		if target, ok = w.Archetypes[hash]; !ok {
 			target = newArchetype(w, newTypes, hash)
 		}
 		// Save to the shortcuts
 		edge.add = target
-		rec.at.edges[c] = edge
+		rec.AT.edges[c] = edge
 	}
 	// Move entity to the new archetype
-	row := moveEntity(e, target, rec, rec.at.types)
-	// Because we move the last entity in rec.at.entities.
-	// We have to update its row value in w.entities.
-	if rec.row != len(rec.at.entities) {
-		rec.at.records[rec.row].row = rec.row
+	row := moveEntity(e, target, rec, rec.AT.Types)
+	// Because we move the last entity in rec.AT.entities.
+	// We have to update its Row value in w.entities.
+	if rec.Row != len(rec.AT.entities) {
+		rec.AT.records[rec.Row].Row = rec.Row
 	}
-	target.comps[w.components[c][target]].(*Table[C]).append(data)
+	target.Comps[w.Components[c][target]].(*Table[C]).append(data)
 
-	rec.at = target
-	rec.row = row
+	rec.AT = target
+	rec.Row = row
 }
 
 // DelComp removes the Component of an Entity.
 // If the Entity doesn't have the Component, nothing will happen.
 func DelComp(w *World, e Entity, c Component) {
-	rec := w.entities[e]
-	col, ok := w.components[c][rec.at]
+	rec := w.Entities[e]
+	col, ok := w.Components[c][rec.AT]
 	if !ok {
 		return // archetype of e doesn't contain component c
 	}
-	// Lookup archetypeEdge for shortcuts
-	edge := rec.at.edges[c]
+	// Lookup ArchetypeEdge for shortcuts
+	edge := rec.AT.edges[c]
 	target := edge.del
 	if target == nil {
 		// We don't have shortcuts yet. Use the hash way.
-		newTypes := rec.at.types.copyDelete(col)
+		newTypes := rec.AT.Types.copyDelete(col)
 		hash := newTypes.sortHash(&w.hash)
-		if target, ok = w.archetypes[hash]; !ok {
+		if target, ok = w.Archetypes[hash]; !ok {
 			target = newArchetype(w, newTypes, hash)
 		}
 		// Save to the shortcuts
 		edge.del = target
-		rec.at.edges[c] = edge
+		rec.AT.edges[c] = edge
 	}
 	// Move entity
-	row := moveEntity(e, target, rec, target.types)
-	// Because we move the last entity in rec.at.entities.
-	// We have to update its row value in w.entities.
-	if rec.row != len(rec.at.entities) {
-		rec.at.records[rec.row].row = rec.row
+	row := moveEntity(e, target, rec, target.Types)
+	// Because we move the last entity in rec.AT.entities.
+	// We have to update its Row value in w.entities.
+	if rec.Row != len(rec.AT.entities) {
+		rec.AT.records[rec.Row].Row = rec.Row
 	}
 
-	rec.at = target
-	rec.row = row
+	rec.AT = target
+	rec.Row = row
 }
 
-func moveEntity(e Entity, dst *archetype, srcRec *entityRecord, list types) (newRow int) {
-	// Copy components
+func moveEntity(e Entity, dst *Archetype, srcRec *entityRecord, list Types) (newRow int) {
+	// Copy Components
 	srcCol, dstCol := 0, 0
 	for _, t := range list {
-		for srcRec.at.types[srcCol].Component != t.Component {
-			// The types are ordered, and srcRec.at must contain all components in the list.
-			// So we surely will find the correct index, and the access to types[i] won't panic.
+		for srcRec.AT.Types[srcCol].Component != t.Component {
+			// The Types are ordered, and srcRec.AT must contain all Components in the list.
+			// So we surely will find the correct index, and the access to Types[i] won't panic.
 			srcCol++
 		}
-		for dst.types[dstCol].Component != t.Component {
+		for dst.Types[dstCol].Component != t.Component {
 			// So do here.
 			dstCol++
 		}
-		if src := srcRec.at.comps[srcCol]; src != nil {
-			dst.comps[dstCol].appendFrom(src, srcRec.row)
+		if src := srcRec.AT.Comps[srcCol]; src != nil {
+			dst.Comps[dstCol].appendFrom(src, srcRec.Row)
 		}
 	}
 	// Delete everything in src
 	newRow = dst.entities.append(e)
 	dst.records.append(srcRec)
-	srcRec.at.entities.swapDelete(srcRec.row)
-	srcRec.at.records.swapDelete(srcRec.row)
-	for _, s := range srcRec.at.comps {
+	srcRec.AT.entities.swapDelete(srcRec.Row)
+	srcRec.AT.records.swapDelete(srcRec.Row)
+	for _, s := range srcRec.AT.Comps {
 		if s != nil {
-			s.swapDelete(srcRec.row)
+			s.swapDelete(srcRec.Row)
 		}
 	}
 	return
@@ -325,29 +326,29 @@ func moveEntity(e Entity, dst *archetype, srcRec *entityRecord, list types) (new
 // GetComp gets the data of a Component of an Entity.
 // If the Entity doesn't have the Component, nil will be returned.
 func GetComp[C any](w *World, e Entity, c Component) (data *C) {
-	rec := w.entities[e]
-	if column, ok := w.components[c][rec.at]; ok {
-		return &(*rec.at.comps[column].(*Table[C]))[rec.row]
+	rec := w.Entities[e]
+	if column, ok := w.Components[c][rec.AT]; ok {
+		return &(*rec.AT.Comps[column].(*Table[C]))[rec.Row]
 	}
 	return nil
 }
 
-func (i *idManager) get() (id uint64) {
-	if length := len(i.freelist); length > 0 {
-		id = i.freelist[length-1]
-		i.freelist = i.freelist[:length-1]
+func (i *IDManager) get() (id uint64) {
+	if length := len(i.Freelist); length > 0 {
+		id = i.Freelist[length-1]
+		i.Freelist = i.Freelist[:length-1]
 		return
 	}
-	id = i.nextID
-	i.nextID++
+	id = i.NextID
+	i.NextID++
 	return
 }
 
-func (i *idManager) put(id uint64) {
-	i.freelist = append(i.freelist, id)
+func (i *IDManager) put(id uint64) {
+	i.Freelist = append(i.Freelist, id)
 }
 
-func (t types) sortHash(hash *maphash.Hash) uint64 {
+func (t Types) sortHash(hash *maphash.Hash) uint64 {
 	// sort the component list
 	if t != nil {
 		sort.Slice(t, func(i, j int) bool {
@@ -362,18 +363,18 @@ func (t types) sortHash(hash *maphash.Hash) uint64 {
 	return hash.Sum64()
 }
 
-func (t types) copyAppend(c Component, storeType reflect.Type) (newTypes types) {
-	newTypes = make(types, len(t)+1)
-	newTypes[0] = componentMeta{
+func (t Types) copyAppend(c Component, storeType reflect.Type) (newTypes Types) {
+	newTypes = make(Types, len(t)+1)
+	newTypes[0] = ComponentMeta{
 		Component: c,
-		tableType: storeType,
+		TableType: storeType,
 	}
 	copy(newTypes[1:], t)
 	return
 }
 
-func (t types) copyDelete(i int) (newTypes types) {
-	newTypes = make(types, len(t)-1)
+func (t Types) copyDelete(i int) (newTypes Types) {
+	newTypes = make(Types, len(t)-1)
 	copy(newTypes[:i], t[:i])
 	if i+1 < len(t) {
 		copy(newTypes[i:], t[i+1:])
@@ -381,7 +382,7 @@ func (t types) copyDelete(i int) (newTypes types) {
 	return
 }
 
-func (c *Table[C]) appendFrom(other storage, row int) {
+func (c *Table[C]) appendFrom(other Storage, row int) {
 	*c = append(*c, (*other.(*Table[C]))[row])
 }
 
@@ -394,4 +395,8 @@ func (c *Table[C]) swapDelete(i int) {
 func (c *Table[C]) append(data C) int {
 	*c = append(*c, data)
 	return len(*c) - 1
+}
+
+func (c *Table[C]) toSlice() any {
+	return (*[]C)(c)
 }

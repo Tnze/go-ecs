@@ -16,11 +16,11 @@ func TestFilter_Run(t *testing.T) {
 		entities[i] = NewEntity(w)
 	}
 
-	// Create 2 components.
+	// Create 2 Components.
 	c1 := NewComponent(w)
 	c2 := NewComponent(w)
 
-	// Add components to entities.
+	// Add Components to entities.
 	for i, e := range entities[:5] {
 		SetComp(w, e, c1, i)
 	}
@@ -38,8 +38,8 @@ func TestFilter_Run(t *testing.T) {
 		var result []int
 		for i, want := range wants {
 			result = result[:0]
-			QueryAll(filters[i]...).Run(w, func(entities Table[Entity], data []any) {
-				result = append(result, []int(*data[0].(*Table[int]))...)
+			QueryAll(filters[i]...).Run(w, func(entities []Entity, data []any) {
+				result = append(result, *data[0].(*[]int)...)
 			})
 			// The order of the results is not guaranteed, so sort them before validation
 			sort.Ints(result)
@@ -52,8 +52,8 @@ func TestFilter_Run(t *testing.T) {
 		var result []int
 		for i, want := range wants {
 			result = result[:0]
-			QueryAny(filters[i]...).Run(w, func(entities Table[Entity], data []any) {
-				result = append(result, []int(*data[0].(*Table[int]))...)
+			QueryAny(filters[i]...).Run(w, func(entities []Entity, data []any) {
+				result = append(result, *data[0].(*[]int)...)
 			})
 			// The order of the results is not guaranteed, so sort them before validation
 			sort.Ints(result)
@@ -124,8 +124,8 @@ func TestFilter_Cache(t *testing.T) {
 
 	judge := func() {
 		result = result[:0]
-		queryBoth.Run(func(entities Table[Entity], data []any) {
-			result = append(result, []int(*data[0].(*Table[int]))...)
+		queryBoth.Run(func(entities []Entity, data []any) {
+			result = append(result, *data[0].(*[]int)...)
 		})
 		sort.Ints(result)
 		if !reflect.DeepEqual(result, want) {
@@ -176,21 +176,21 @@ func BenchmarkFilter_All(b *testing.B) {
 	}
 
 	// count of tables before creating entities
-	tableCount := len(w.archetypes)
+	tableCount := len(w.Archetypes)
 
 	for i := 0; i < EntityCount; i++ {
 		e := NewEntity(w)
-		coins := rand.Int() // we know len(components) < bitsOf(int)
+		coins := rand.Int() // we know len(Components) < bitsOf(int)
 		for i, c := range components {
 			if coins&(1<<i) != 0 {
 				AddComp(w, e, c)
 			}
 		}
 	}
-	b.Logf("entities created: %d (w/%d randomized components)", EntityCount, ComponentCount)
-	b.Logf("tables created  : %d", len(w.archetypes)-tableCount)
+	b.Logf("entities created: %d (w/%d randomized Components)", EntityCount, ComponentCount)
+	b.Logf("tables created  : %d", len(w.Archetypes)-tableCount)
 	b.Logf("setup time      : %v", b.Elapsed())
-	b.Logf("queriying for %d components", QueryCount)
+	b.Logf("queriying for %d Components", QueryCount)
 
 	rand.Shuffle(len(components), func(i, j int) {
 		components[i], components[j] = components[j], components[i]
@@ -199,7 +199,7 @@ func BenchmarkFilter_All(b *testing.B) {
 	b.Run("uncached", func(b *testing.B) {
 		var tableMatched int64
 		for i := 0; i < b.N; i++ {
-			QueryAll(components[:QueryCount]...).Run(w, func(entities Table[Entity], data []any) {
+			QueryAll(components[:QueryCount]...).Run(w, func(entities []Entity, data []any) {
 				tableMatched++
 			})
 		}
@@ -211,7 +211,7 @@ func BenchmarkFilter_All(b *testing.B) {
 
 		var tableMatched int64
 		for i := 0; i < b.N; i++ {
-			cachedQuery.Run(func(entities Table[Entity], data []any) {
+			cachedQuery.Run(func(entities []Entity, data []any) {
 				tableMatched++
 			})
 		}

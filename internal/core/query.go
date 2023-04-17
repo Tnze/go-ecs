@@ -1,32 +1,32 @@
-package ecs
+package core
 
-type Filter func(*World, *archetype, *[]int) bool
+type Filter func(*World, *Archetype, *[]int) bool
 
-func (f Filter) Run(w *World, h func(entities Table[Entity], data []any)) {
+func (f Filter) Run(w *World, h func(entities []Entity, data []any)) {
 	var columns []int
 	var data []any
-	for _, a := range w.archetypes {
+	for _, a := range w.Archetypes {
 		columns = columns[:0]
 		if !f(w, a, &columns) {
 			continue
 		}
 		data = data[:0]
 		for _, col := range columns {
-			data = append(data, a.comps[col])
+			data = append(data, a.Comps[col].toSlice())
 		}
 		h(a.entities, data)
 	}
 }
 
 func QueryAll(comps ...Component) Filter {
-	return func(w *World, a *archetype, out *[]int) bool {
+	return func(w *World, a *Archetype, out *[]int) bool {
 		for _, c := range comps {
-			col, ok := w.components[c][a]
+			col, ok := w.Components[c][a]
 			if !ok {
 				return false
 			}
-			// Empty components are excluded from the output.
-			if a.comps[col] != nil {
+			// Empty Components are excluded from the output.
+			if a.Comps[col] != nil {
 				*out = append(*out, col)
 			}
 		}
@@ -35,11 +35,11 @@ func QueryAll(comps ...Component) Filter {
 }
 
 func QueryAny(comps ...Component) Filter {
-	return func(w *World, a *archetype, out *[]int) (pass bool) {
+	return func(w *World, a *Archetype, out *[]int) (pass bool) {
 		for _, c := range comps {
-			if col, ok := w.components[c][a]; ok {
-				// Empty components are excluded from the output.
-				if a.comps[col] != nil {
+			if col, ok := w.Components[c][a]; ok {
+				// Empty Components are excluded from the output.
+				if a.Comps[col] != nil {
 					*out = append(*out, col)
 				}
 				pass = true
@@ -51,10 +51,10 @@ func QueryAny(comps ...Component) Filter {
 
 func (f Filter) Cache(w *World) (q *CachedQuery) {
 	var columns [][]int
-	var tables []*archetype
+	var tables []*Archetype
 
 	var out []int
-	for _, a := range w.archetypes {
+	for _, a := range w.Archetypes {
 		out = make([]int, 0, len(out))
 		if f(w, a, &out) {
 			columns = append(columns, out)
@@ -68,34 +68,34 @@ func (f Filter) Cache(w *World) (q *CachedQuery) {
 		columns: columns,
 		data:    nil,
 	}
-	q.row = w.queries.append(q)
+	q.row = w.Queries.append(q)
 	return q
 }
 
 // CachedQuery is cached filter
 type CachedQuery struct {
 	filter  Filter
-	tables  []*archetype // All archetypes in the world that matches the filter.
-	columns [][]int      // For each archetype, the storage indexes for every component data.
+	tables  []*Archetype // All archetypes in the world that matches the filter.
+	columns [][]int      // For each archetype, the Storage indexes for every component data.
 
 	// Cached arguments for the callback, to avoid allocating memory every time Run is called.
 	data []any
 	row  int // self index in World.queries
 }
 
-func (q *CachedQuery) Run(h func(entities Table[Entity], data []any)) {
+func (q *CachedQuery) Run(h func(entities []Entity, data []any)) {
 	data := q.data[:0]
 	for i, a := range q.tables {
 		data = data[:0]
 		for _, col := range q.columns[i] {
-			data = append(data, a.comps[col])
+			data = append(data, a.Comps[col].toSlice())
 		}
 		h(a.entities, data)
 	}
 	q.data = data
 }
 
-func (q *CachedQuery) update(w *World, a *archetype) {
+func (q *CachedQuery) update(w *World, a *Archetype) {
 	var numOfCol int
 	if len(q.columns) > 0 {
 		numOfCol = len(q.columns[0])
@@ -109,8 +109,8 @@ func (q *CachedQuery) update(w *World, a *archetype) {
 }
 
 func (q *CachedQuery) Free(w *World) {
-	w.queries.swapDelete(q.row)
-	if q.row < len(w.queries) {
-		w.queries[q.row].row = q.row
+	w.Queries.swapDelete(q.row)
+	if q.row < len(w.Queries) {
+		w.Queries[q.row].row = q.row
 	}
 }

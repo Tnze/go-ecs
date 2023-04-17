@@ -21,15 +21,15 @@ func TestEntity_basic(t *testing.T) {
 	SetComp(w, e2, c2, "E2-C2")
 	SetComp(w, e3, c2, "E2-C2")
 
-	QueryAll(c1).Run(w, func(entities Table[Entity], data []any) {
-		s := *data[0].(*Table[string])
+	QueryAll(c1).Run(w, func(entities []Entity, data []any) {
+		s := *data[0].(*[]string)
 		for i, e := range entities {
 			entityName := GetComp[string](w, e, name)
 			fmt.Printf("%s: %s\n", *entityName, s[i])
 		}
 	})
-	QueryAll(c2).Run(w, func(entities Table[Entity], data []any) {
-		s := *data[0].(*Table[string])
+	QueryAll(c2).Run(w, func(entities []Entity, data []any) {
+		s := *data[0].(*[]string)
 		for i, e := range entities {
 			entityName := GetComp[string](w, e, name)
 			fmt.Printf("%s: %s\n", *entityName, s[i])
@@ -56,8 +56,8 @@ func TestNewEntity(t *testing.T) {
 
 	// We create 10 entities, and delete 10 entities, and then create 10 entities again.
 	// The latter 10 entities should reuse the ids of the former 10 entities.
-	// So nextID should not be 20 but 10.
-	if w.idManager.nextID >= 20 {
+	// So NextID should not be 20 but 10.
+	if w.IDManager.NextID >= 20 {
 		t.Errorf("idManager doesn't recycle ids")
 	}
 }
