@@ -21,7 +21,7 @@ type (
 
 		// All entities in the World, including Components.
 		// Records their archetype's pointer and the index of the Comps belonging to the entity.
-		Entities map[Entity]*entityRecord
+		Entities map[Entity]*EntityRecord
 
 		// All archetypes in the World.
 		// The key of the map is the hash of the archetype's Types.
@@ -67,14 +67,14 @@ type (
 		NextID   uint64
 		Freelist []uint64
 	}
-	entityRecord struct {
+	EntityRecord struct {
 		AT  *Archetype
 		Row int
 	}
 	Archetype struct {
 		Types
 		entities Table[Entity]
-		records  Table[*entityRecord]
+		records  Table[*EntityRecord]
 		Comps    []Storage
 
 		// A list of edges to other archetypes.
@@ -101,6 +101,8 @@ type (
 		appendFrom(other Storage, column int)
 		swapDelete(i int)
 		toSlice() any
+
+		Get(i int) any
 	}
 	Table[C any] []C
 )
@@ -108,7 +110,7 @@ type (
 // NewWorld creates a new empty World, with the default Components.
 func NewWorld() (w *World) {
 	w = &World{
-		Entities:   make(map[Entity]*entityRecord),
+		Entities:   make(map[Entity]*EntityRecord),
 		Archetypes: make(map[uint64]*Archetype),
 		Components: make(map[Component]map[*Archetype]int),
 	}
@@ -119,7 +121,7 @@ func NewWorld() (w *World) {
 // NewEntity creates a new Entity in the World, without any Components.
 func NewEntity(w *World) (e Entity) {
 	e = Entity(w.get())
-	r := new(entityRecord)
+	r := new(EntityRecord)
 	r.AT = w.Zero
 	r.Row = w.Zero.entities.append(e)
 	w.Zero.records.append(r)
@@ -293,7 +295,7 @@ func DelComp(w *World, e Entity, c Component) {
 	rec.Row = row
 }
 
-func moveEntity(e Entity, dst *Archetype, srcRec *entityRecord, list Types) (newRow int) {
+func moveEntity(e Entity, dst *Archetype, srcRec *EntityRecord, list Types) (newRow int) {
 	// Copy Components
 	srcCol, dstCol := 0, 0
 	for _, t := range list {
@@ -392,11 +394,15 @@ func (c *Table[C]) swapDelete(i int) {
 	*c = (*c)[:last]
 }
 
+func (c *Table[C]) toSlice() any {
+	return (*[]C)(c)
+}
+
+func (c *Table[C]) Get(i int) any {
+	return (*c)[i]
+}
+
 func (c *Table[C]) append(data C) int {
 	*c = append(*c, data)
 	return len(*c) - 1
-}
-
-func (c *Table[C]) toSlice() any {
-	return (*[]C)(c)
 }

@@ -1,20 +1,26 @@
 package reflect
 
 import (
-	"reflect"
-
 	"github.com/Tnze/go-ecs"
+	"github.com/Tnze/go-ecs/internal/core"
 )
 
-func NumComps(w *ecs.World, e ecs.Entity) int {
-	return len(w.Entities[e].AT.Types)
+type Value struct {
+	rec *core.EntityRecord
 }
 
-func IndexComps(w *ecs.World, e ecs.Entity, i int) (c ecs.Component, v reflect.Value) {
-	rec := w.Entities[e]
-	c = rec.AT.Types[i].Component
-	if store := reflect.ValueOf(rec.AT.Comps[i]); !store.IsNil() {
-		v = store.Index(rec.Row)
+func ValueOf(w *ecs.World, e ecs.Entity) Value {
+	return Value{w.Entities[e]}
+}
+
+func (v Value) NumComps() int {
+	return len(v.rec.AT.Types)
+}
+
+func (v Value) IndexComps(i int) (c ecs.Component, val any) {
+	c = v.rec.AT.Types[i].Component
+	if store := v.rec.AT.Comps[i]; store != nil {
+		val = store.Get(v.rec.Row)
 	}
-	return c, v
+	return c, val
 }
