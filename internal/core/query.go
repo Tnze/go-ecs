@@ -12,7 +12,11 @@ func (f Filter) Run(w *World, h func(entities []Entity, data []any)) {
 		}
 		data = data[:0]
 		for _, col := range columns {
-			data = append(data, a.Comps[col].toSlice())
+			if col != -1 {
+				data = append(data, a.Comps[col].toSlice())
+			} else {
+				data = append(data, nil)
+			}
 		}
 		h(a.entities, data)
 	}
@@ -26,7 +30,7 @@ func QueryAll(comps ...Component) Filter {
 				return false
 			}
 			// Empty Components are excluded from the output.
-			if a.Comps[col] != nil {
+			if col != -1 {
 				*out = append(*out, col)
 			}
 		}
@@ -39,10 +43,12 @@ func QueryAny(comps ...Component) Filter {
 		for _, c := range comps {
 			if col, ok := w.Components[c][a]; ok {
 				// Empty Components are excluded from the output.
-				if a.Comps[col] != nil {
+				if col != -1 {
 					*out = append(*out, col)
 				}
 				pass = true
+			} else {
+				*out = append(*out, -1)
 			}
 		}
 		return

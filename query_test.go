@@ -33,39 +33,37 @@ func TestFilter_Run(t *testing.T) {
 	// c2: [      3 4 5 6      ]
 
 	filters := [][]Component{{c1}, {c2}, {c1, c2}}
-	var wants [][]int
+	var wants [][]Entity
 	testAll := func(t *testing.T) {
-		var result []int
+		var result []Entity
 		for i, want := range wants {
 			result = result[:0]
 			QueryAll(filters[i]...).Run(w, func(entities []Entity, data []any) {
-				result = append(result, *data[0].(*[]int)...)
+				result = append(result, entities...)
 			})
-			// The order of the results is not guaranteed, so sort them before validation
-			sort.Ints(result)
+			sort.Slice(result, func(i, j int) bool { return result[i] < result[j] })
 			if !reflect.DeepEqual(result, want) {
 				t.Errorf("get: %v, want: %v", result, want)
 			}
 		}
 	}
 	testAny := func(t *testing.T) {
-		var result []int
+		var result []Entity
 		for i, want := range wants {
 			result = result[:0]
 			QueryAny(filters[i]...).Run(w, func(entities []Entity, data []any) {
-				result = append(result, *data[0].(*[]int)...)
+				result = append(result, entities...)
 			})
-			// The order of the results is not guaranteed, so sort them before validation
-			sort.Ints(result)
+			sort.Slice(result, func(i, j int) bool { return result[i] < result[j] })
 			if !reflect.DeepEqual(result, want) {
 				t.Errorf("get: %v, want: %v", result, want)
 			}
 		}
 	}
 
-	wants = [][]int{{0, 1, 2, 3, 4}, {3, 4, 5, 6}, {3, 4}}
+	wants = [][]Entity{{entities[0], entities[1], entities[2], entities[3], entities[4]}, {entities[3], entities[4], entities[5], entities[6]}, {entities[3], entities[4]}}
 	t.Run("All", testAll)
-	wants = [][]int{{0, 1, 2, 3, 4}, {3, 4, 5, 6}, {0, 1, 2, 3, 4, 5, 6}}
+	wants = [][]Entity{{entities[0], entities[1], entities[2], entities[3], entities[4]}, {entities[3], entities[4], entities[5], entities[6]}, {entities[0], entities[1], entities[2], entities[3], entities[4], entities[5], entities[6]}}
 	t.Run("Any", testAny)
 
 	// change the entities
@@ -76,9 +74,9 @@ func TestFilter_Run(t *testing.T) {
 	// c1: [0 1 2 3 4   6      ]
 	// c2: [      _ 4 5 6      ]
 
-	wants = [][]int{{0, 1, 2, 3, 4, 6}, {4, 5, 6}, {4, 6}}
+	wants = [][]Entity{{entities[0], entities[1], entities[2], entities[3], entities[4], entities[6]}, {entities[4], entities[5], entities[6]}, {entities[4], entities[6]}}
 	t.Run("All", testAll)
-	wants = [][]int{{0, 1, 2, 3, 4, 6}, {4, 5, 6}, {0, 1, 2, 3, 4, 5, 6}}
+	wants = [][]Entity{{entities[0], entities[1], entities[2], entities[3], entities[4], entities[6]}, {entities[4], entities[5], entities[6]}, {entities[0], entities[1], entities[2], entities[3], entities[4], entities[5], entities[6]}}
 	t.Run("Any", testAny)
 
 	c3 := NewComponent(w)
@@ -91,9 +89,9 @@ func TestFilter_Run(t *testing.T) {
 	// c2: [      _ 4 5 6      ]
 	// c3: [          5 6 7    ]
 
-	wants = [][]int{{0, 1, 2, 3, 4, 6}, {4, 5, 6}, {4, 6}}
+	wants = [][]Entity{{entities[0], entities[1], entities[2], entities[3], entities[4], entities[6]}, {entities[4], entities[5], entities[6]}, {entities[4], entities[6]}}
 	t.Run("All", testAll)
-	wants = [][]int{{0, 1, 2, 3, 4, 6}, {4, 5, 6}, {0, 1, 2, 3, 4, 5, 6}}
+	wants = [][]Entity{{entities[0], entities[1], entities[2], entities[3], entities[4], entities[6]}, {entities[4], entities[5], entities[6]}, {entities[0], entities[1], entities[2], entities[3], entities[4], entities[5], entities[6]}}
 	t.Run("Any", testAny)
 }
 

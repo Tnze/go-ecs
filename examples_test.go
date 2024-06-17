@@ -3,6 +3,7 @@ package ecs_test
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/Tnze/go-ecs"
 )
@@ -16,13 +17,13 @@ func ExampleEntity_basic() {
 	w := ecs.NewWorld()
 
 	name := ecs.NewComponent(w)
-	ecs.SetComp(w, name.Entity, name, "Name")
+	ecs.SetComp(w, ecs.Entity(name), name, "Name")
 
 	position := ecs.NewComponent(w)
-	ecs.SetComp(w, position.Entity, name, "Position")
+	ecs.SetComp(w, ecs.Entity(position), name, "Position")
 
 	walking := ecs.NewComponent(w)
-	ecs.SetComp(w, walking.Entity, name, "Walking")
+	ecs.SetComp(w, ecs.Entity(walking), name, "Walking")
 
 	// Create an entity with name Bob
 	bob := ecs.NewEntity(w)
@@ -122,10 +123,10 @@ func ExampleQueryAny() {
 
 	// Add Components to entities.
 	for i, e := range entities[:5] {
-		ecs.SetComp(w, e, c1, i)
+		ecs.SetComp(w, e, c1, int32(i))
 	}
 	for i, e := range entities[3:7] {
-		ecs.SetComp(w, e, c2, i+3)
+		ecs.SetComp(w, e, c2, int64(i+3))
 	}
 
 	// Current layout:
@@ -135,16 +136,27 @@ func ExampleQueryAny() {
 	// c2:    [      3 4 5 6      ]
 	// c1&c2: [      3 4          ]
 
-	// CachedQuery all entities which have both c1 and c2.
-	var result []int
+	// CachedQuery all entities which have c1 or c2.
+	var results []string
 	ecs.QueryAny(c1, c2).Run(w, func(entities []ecs.Entity, data []any) {
 		// The type of the data's element is `Table[T]`,
 		// which can be converted to `[]T` only after type assertion.
-		result = append(result, *data[0].(*[]int)...)
+		var sb strings.Builder
+		fmt.Fprintf(&sb, "%v:", entities)
+		if data[0] != nil {
+			fmt.Fprintf(&sb, " c1: [%v]", *data[0].(*[]int32))
+		}
+		if data[1] != nil {
+			fmt.Fprintf(&sb, " c2: [%v]", *data[1].(*[]int64))
+		}
+		results = append(results, sb.String())
 	})
-	sort.Ints(result)
-	fmt.Println(result)
+
+	sort.Strings(results)
+	fmt.Print(strings.Join(results, "\n"))
 
 	// Output:
-	// [0 1 2 3 4 5 6]
+	// [0 1 2]: c1: [[0 1 2]]
+	// [3 4]: c1: [[3 4]] c2: [[3 4]]
+	// [5 6]: c2: [[5 6]]
 }

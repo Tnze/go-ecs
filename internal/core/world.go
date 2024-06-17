@@ -61,7 +61,7 @@ type (
 	// Each component can be added only once to an entity.
 	//
 	// --flecs.dev
-	Component struct{ Entity }
+	Component Entity
 
 	IDManager struct {
 		NextID   uint64
@@ -148,7 +148,7 @@ func DelEntity(w *World, e Entity) {
 // NewComponent creates a new Component in the World.
 // The data type associated with the Component will be bind when the first data is set.
 func NewComponent(w *World) (c Component) {
-	c = Component{NewEntity(w)}
+	c = Component(NewEntity(w))
 	w.Components[c] = make(map[*Archetype]int)
 	return
 }
@@ -164,8 +164,10 @@ func newArchetype(w *World, t Types, hash uint64) (a *Archetype) {
 	for i, v := range t {
 		if v.TableType != nil {
 			a.Comps[i] = reflect.New(v.TableType.Elem()).Interface().(Storage)
+			w.Components[v.Component][a] = i
+		} else {
+			w.Components[v.Component][a] = -1
 		}
-		w.Components[v.Component][a] = i
 	}
 	w.Archetypes[hash] = a
 
@@ -354,7 +356,7 @@ func (t Types) sortHash(hash *maphash.Hash) uint64 {
 	// sort the component list
 	if t != nil {
 		sort.Slice(t, func(i, j int) bool {
-			return t[i].Component.Entity < t[j].Component.Entity
+			return t[i].Component < t[j].Component
 		})
 	}
 	// calculate hash
