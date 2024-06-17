@@ -59,4 +59,8 @@ func (q *CachedQuery) Free(w *World)                   { (*core.CachedQuery)(q).
 
 // debug
 
+// Type is for debug purpose. Return a human-readable string representing the Archetype of an Entity.
+//
+// To use this function, make sure you have add Component[string] for your other Component
+// (Component is valid Entity, you can add Component to them). Otherwise, the type name of the data is used.
 func Type(w *World, e Entity, nameComp Component) string { return core.Type(w, e, nameComp) }
