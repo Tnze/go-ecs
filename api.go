@@ -1,6 +1,10 @@
 package ecs
 
-import "github.com/Tnze/go-ecs/internal/core"
+import (
+	"iter"
+
+	"github.com/Tnze/go-ecs/internal/core"
+)
 
 type (
 	World     = core.World
@@ -52,10 +56,11 @@ func QueryAll(comps ...Component) Filter { return Filter(core.QueryAll(comps...)
 // QueryAny return a filter querying Entities that have at least one of the required Component.
 func QueryAny(comps ...Component) Filter { return Filter(core.QueryAny(comps...)) }
 
-func (f Filter) Run(w *World, h func([]Entity, []any)) { core.Filter(f).Run(w, h) }
-func (f Filter) Cache(w *World) *CachedQuery           { return (*CachedQuery)(core.Filter(f).Cache(w)) }
-func (q *CachedQuery) Run(h func([]Entity, []any))     { (*core.CachedQuery)(q).Run(h) }
-func (q *CachedQuery) Free(w *World)                   { (*core.CachedQuery)(q).Free(w) }
+func (f Filter) Run(w *World, h func([]Entity, []any))  { core.Filter(f).Run(w, h) }
+func (f Filter) Iter(w *World) iter.Seq2[Entity, []any] { return core.Filter(f).Iter(w) }
+func (f Filter) Cache(w *World) *CachedQuery            { return (*CachedQuery)(core.Filter(f).Cache(w)) }
+func (q *CachedQuery) Run(h func([]Entity, []any))      { (*core.CachedQuery)(q).Run(h) }
+func (q *CachedQuery) Free(w *World)                    { (*core.CachedQuery)(q).Free(w) }
 
 // debug
 

@@ -1,5 +1,9 @@
 package core
 
+import (
+	"iter"
+)
+
 type Filter func(*World, *Archetype, *[]int) bool
 
 func (f Filter) Run(w *World, h func(entities []Entity, data []any)) {
@@ -19,6 +23,32 @@ func (f Filter) Run(w *World, h func(entities []Entity, data []any)) {
 			}
 		}
 		h(a.entities, data)
+	}
+}
+
+func (f Filter) Iter(w *World) iter.Seq2[Entity, []any] {
+	return func(yield func(Entity, []any) bool) {
+		var columns []int
+		var data []any
+		for _, a := range w.Archetypes {
+			columns = columns[:0]
+			if !f(w, a, &columns) {
+				continue
+			}
+			if totalCol := len(columns); len(data) != totalCol {
+				data = make([]any, totalCol)
+			}
+			for i, entity := range a.entities {
+				for j, col := range columns {
+					if col != -1 {
+						data[j] = a.Comps[col].Get(i)
+					} else {
+						data[j] = nil
+					}
+				}
+				yield(entity, data)
+			}
+		}
 	}
 }
 
