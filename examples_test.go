@@ -249,3 +249,55 @@ func ExampleQueryAny_iter() {
 	// e5: [c1: <nil> c2: 5]
 	// e6: [c1: <nil> c2: 6]
 }
+
+func ExampleQueryAny_cache_iter() {
+	w := ecs.NewWorld()
+
+	// Create 10 entities.
+	var entities [10]ecs.Entity
+	for i := range entities {
+		entities[i] = ecs.NewEntity(w)
+	}
+
+	// Create 2 Components.
+	c1 := ecs.NewComponent(w)
+	c2 := ecs.NewComponent(w)
+
+	// Cache query
+	query := ecs.QueryAny(c1, c2).Cache(w)
+
+	// Add Components to entities.
+	for i, e := range entities[:5] {
+		ecs.SetComp(w, e, c1, int32(i))
+	}
+	for i, e := range entities[3:7] {
+		ecs.SetComp(w, e, c2, int64(i+3))
+	}
+
+	// Current layout:
+	//
+	// entity:[0 1 2 3 4 5 6 7 8 9]
+	// c1:    [0 1 2 3 4          ]
+	// c2:    [      3 4 5 6      ]
+	// c1&c2: [      3 4          ]
+
+	// CachedQuery all entities which have c1 or c2.
+	var results []string
+	for entity, data := range query.Iter {
+		// The type of the data's element is `Table[T]`,
+		// which can be converted to `[]T` only after type assertion.
+		results = append(results, fmt.Sprintf("e%v: [c1: %v c2: %v]", entity, data[0], data[1]))
+	}
+
+	sort.Strings(results)
+	fmt.Print(strings.Join(results, "\n"))
+
+	// Output:
+	// e0: [c1: 0 c2: <nil>]
+	// e1: [c1: 1 c2: <nil>]
+	// e2: [c1: 2 c2: <nil>]
+	// e3: [c1: 3 c2: 3]
+	// e4: [c1: 4 c2: 4]
+	// e5: [c1: <nil> c2: 5]
+	// e6: [c1: <nil> c2: 6]
+}

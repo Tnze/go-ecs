@@ -124,10 +124,34 @@ func (q *CachedQuery) Run(h func(entities []Entity, data []any)) {
 	for i, a := range q.tables {
 		data = data[:0]
 		for _, col := range q.columns[i] {
-			data = append(data, a.Comps[col].toSlice())
+			if col != -1 {
+				data = append(data, a.Comps[col].toSlice())
+			} else {
+				data = append(data, nil)
+			}
 		}
 		h(a.entities, data)
 	}
+	clear(data)
+	q.data = data
+}
+
+func (q *CachedQuery) Iter(yield func(enitty Entity, data []any) bool) {
+	data := q.data[:0]
+	for j, a := range q.tables {
+		for i, entity := range a.entities {
+			data = data[:0]
+			for _, col := range q.columns[j] {
+				if col != -1 {
+					data = append(data, a.Comps[col].Get(i))
+				} else {
+					data = append(data, nil)
+				}
+			}
+			yield(entity, data)
+		}
+	}
+	clear(data)
 	q.data = data
 }
 

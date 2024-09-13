@@ -60,7 +60,10 @@ func (f Filter) Run(w *World, h func([]Entity, []any))  { core.Filter(f).Run(w, 
 func (f Filter) Iter(w *World) iter.Seq2[Entity, []any] { return core.Filter(f).Iter(w) }
 func (f Filter) Cache(w *World) *CachedQuery            { return (*CachedQuery)(core.Filter(f).Cache(w)) }
 func (q *CachedQuery) Run(h func([]Entity, []any))      { (*core.CachedQuery)(q).Run(h) }
-func (q *CachedQuery) Free(w *World)                    { (*core.CachedQuery)(q).Free(w) }
+func (q *CachedQuery) Iter(yield func(enitty Entity, data []any) bool) {
+	(*core.CachedQuery)(q).Iter(yield)
+}
+func (q *CachedQuery) Free(w *World) { (*core.CachedQuery)(q).Free(w) }
 
 // debug
 
