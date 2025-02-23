@@ -1,4 +1,4 @@
-package core
+package ecs
 
 import (
 	"hash/maphash"
@@ -63,6 +63,7 @@ type (
 	// --flecs.dev
 	Component Entity
 
+	// The IDManager is an internal structure which is used to generate/recycle entity IDs.
 	IDManager struct {
 		NextID   uint64
 		Freelist []uint64
@@ -88,8 +89,8 @@ type (
 	Types         []ComponentMeta
 	ComponentMeta struct {
 		Component
-		// If the component's corresponding data has type T,
-		// this stores the reflect.Type of Table[T].
+		// This stores the reflect.Type of *Table[T],
+		// which T is the type of component's corresponding data.
 		// We need this because, when creating new archetypes,
 		// we need to create new Storage for the Components.
 		TableType reflect.Type
@@ -239,9 +240,8 @@ func SetComp[C any](w *World, e Entity, c Component, data C) {
 	target := edge.add
 	if target == nil {
 		// We don't have shortcuts yet. Use the hash way.
-		var tmpS *Table[C]
 		var ok bool
-		newTypes := rec.AT.Types.copyAppend(c, reflect.TypeOf(tmpS))
+		newTypes := rec.AT.Types.copyAppend(c, reflect.TypeFor[*Table[C]]())
 		hash := newTypes.sortHash(&w.hash)
 		if target, ok = w.Archetypes[hash]; !ok {
 			target = newArchetype(w, newTypes, hash)
@@ -337,17 +337,21 @@ func GetComp[C any](w *World, e Entity, c Component) (data *C) {
 	return nil
 }
 
+// get an ID from the IDManager.
+// If the Freelist isn't empty, the ID is obtained there, otherwise it's generated incrementally.
 func (i *IDManager) get() (id uint64) {
 	if length := len(i.Freelist); length > 0 {
 		id = i.Freelist[length-1]
 		i.Freelist = i.Freelist[:length-1]
-		return
+	} else {
+		id = i.NextID
+		i.NextID++
 	}
-	id = i.NextID
-	i.NextID++
 	return
 }
 
+// put an ID into the IDManager.
+// The ID will be recycled and stored in the Freelist, and to be reused later.
 func (i *IDManager) put(id uint64) {
 	i.Freelist = append(i.Freelist, id)
 }

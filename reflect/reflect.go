@@ -2,11 +2,10 @@ package reflect
 
 import (
 	"github.com/Tnze/go-ecs"
-	"github.com/Tnze/go-ecs/internal/core"
 )
 
 type Value struct {
-	rec *core.EntityRecord
+	rec *ecs.EntityRecord
 }
 
 func ValueOf(w *ecs.World, e ecs.Entity) Value {
