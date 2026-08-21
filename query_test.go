@@ -38,7 +38,7 @@ func TestFilter_Run(t *testing.T) {
 		var result []Entity
 		for i, want := range wants {
 			result = result[:0]
-			QueryAll(filters[i]...).Run(w, func(entities []Entity, data []any) {
+			w.Query(QueryAll(filters[i]...), func(entities []Entity, data []any) {
 				result = append(result, entities...)
 			})
 			sort.Slice(result, func(i, j int) bool { return result[i] < result[j] })
@@ -51,7 +51,7 @@ func TestFilter_Run(t *testing.T) {
 		var result []Entity
 		for i, want := range wants {
 			result = result[:0]
-			QueryAny(filters[i]...).Run(w, func(entities []Entity, data []any) {
+			w.Query(QueryAny(filters[i]...), func(entities []Entity, data []any) {
 				result = append(result, entities...)
 			})
 			sort.Slice(result, func(i, j int) bool { return result[i] < result[j] })
@@ -116,7 +116,7 @@ func TestFilter_Cache(t *testing.T) {
 	// c2: [      3 4 5 6      ]
 
 	// Create the cached query
-	queryBoth := QueryAll(c1, c2).Cache(w)
+	queryBoth := w.Cache(QueryAll(c1, c2))
 	var result []int
 	var want []int
 
@@ -197,14 +197,14 @@ func BenchmarkFilter_All(b *testing.B) {
 	b.Run("uncached", func(b *testing.B) {
 		var tableMatched int64
 		for i := 0; i < b.N; i++ {
-			QueryAll(components[:QueryCount]...).Run(w, func(entities []Entity, data []any) {
+			w.Query(QueryAll(components[:QueryCount]...), func(entities []Entity, data []any) {
 				tableMatched++
 			})
 		}
 		b.ReportMetric(float64(b.Elapsed().Nanoseconds()/(tableMatched)), "ns/table")
 	})
 	b.Run("cached", func(b *testing.B) {
-		cachedQuery := QueryAll(components[:QueryCount]...).Cache(w)
+		cachedQuery := w.Cache(QueryAll(components[:QueryCount]...))
 		b.ResetTimer()
 
 		var tableMatched int64

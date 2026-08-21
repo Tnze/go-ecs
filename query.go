@@ -2,11 +2,13 @@ package ecs
 
 import (
 	"iter"
+	"weak"
 )
 
+// Filter determines whether an archetype is of interest and which specific columns it contains.
 type Filter func(*World, *Archetype, *[]int) bool
 
-func (f Filter) Run(w *World, h func(entities []Entity, data []any)) {
+func (w *World) Query(f Filter, h func(entities []Entity, data []any)) {
 	var columns []int
 	var data []any
 	for _, a := range w.Archetypes {
@@ -26,7 +28,7 @@ func (f Filter) Run(w *World, h func(entities []Entity, data []any)) {
 	}
 }
 
-func (f Filter) Iter(w *World) iter.Seq2[Entity, []any] {
+func (w *World) Iter(f Filter) iter.Seq2[Entity, []any] {
 	return func(yield func(Entity, []any) bool) {
 		var columns []int
 		var data []any
@@ -61,7 +63,7 @@ func QueryAll(comps ...Component) Filter {
 			if !ok {
 				return false
 			}
-			// Empty Components are excluded from the output.
+			// Empty components are excluded from the output.
 			if col != -1 {
 				*out = append(*out, col)
 			}
@@ -74,7 +76,7 @@ func QueryAny(comps ...Component) Filter {
 	return func(w *World, a *Archetype, out *[]int) (pass bool) {
 		for _, c := range comps {
 			if col, ok := w.Components[c][a]; ok {
-				// Empty Components are excluded from the output.
+				// Empty components are excluded from the output.
 				if col != -1 {
 					*out = append(*out, col)
 				}
@@ -87,7 +89,7 @@ func QueryAny(comps ...Component) Filter {
 	}
 }
 
-func (f Filter) Cache(w *World) (q *CachedQuery) {
+func (w *World) Cache(f Filter) (q *CachedQuery) {
 	var columns [][]int
 	var tables []*Archetype
 
@@ -106,19 +108,18 @@ func (f Filter) Cache(w *World) (q *CachedQuery) {
 		columns: columns,
 		data:    nil,
 	}
-	q.row = w.Queries.append(q)
+	w.Queries.append(weak.Make(q))
 	return q
 }
 
-// CachedQuery is cached filter
+// CachedQuery is a cached filter.
 type CachedQuery struct {
 	filter  Filter
-	tables  []*Archetype // All archetypes in the world that matches the filter.
-	columns [][]int      // For each archetype, the Storage indexes for every component data.
+	tables  []*Archetype // All archetypes in the world that match the filter.
+	columns [][]int      // For each archetype, the storage indexes for its component data.
 
 	// Cached arguments for the callback, to avoid allocating memory every time Run is called.
 	data []any
-	row  int // self index in World.queries
 }
 
 func (q *CachedQuery) Run(h func(entities []Entity, data []any)) {
@@ -169,12 +170,5 @@ func (q *CachedQuery) update(w *World, a *Archetype) {
 	if q.filter(w, a, &out) {
 		q.columns = append(q.columns, out)
 		q.tables = append(q.tables, a)
-	}
-}
-
-func (q *CachedQuery) Free(w *World) {
-	w.Queries.swapDelete(q.row)
-	if q.row < len(w.Queries) {
-		w.Queries[q.row].row = q.row
 	}
 }

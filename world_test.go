@@ -21,14 +21,14 @@ func TestEntity_basic(t *testing.T) {
 	w.SetComp(e2, c2, "E2-C2")
 	w.SetComp(e3, c2, "E2-C2")
 
-	QueryAll(c1).Run(w, func(entities []Entity, data []any) {
+	w.Query(QueryAll(c1), func(entities []Entity, data []any) {
 		s := *data[0].(*[]string)
 		for i, e := range entities {
 			entityName := w.GetComp[string](e, name)
 			fmt.Printf("%s: %s\n", *entityName, s[i])
 		}
 	})
-	QueryAll(c2).Run(w, func(entities []Entity, data []any) {
+	w.Query(QueryAll(c2), func(entities []Entity, data []any) {
 		s := *data[0].(*[]string)
 		for i, e := range entities {
 			entityName := w.GetComp[string](e, name)

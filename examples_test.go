@@ -52,7 +52,7 @@ func ExampleEntity_basic() {
 	//    Position, Walking, (Identifier,Name)
 	fmt.Printf("[%s]\n", ecs.Type(w, alice, name))
 	// Iterate all entities with Position
-	ecs.QueryAll(position).Run(w, func(entities []ecs.Entity, data []any) {
+	w.Query(ecs.QueryAll(position), func(entities []ecs.Entity, data []any) {
 		p := *data[0].(*[]Position)
 		for i, e := range entities {
 			entityName := w.GetComp[string](e, name)
@@ -98,7 +98,7 @@ func ExampleQueryAll() {
 	// c1&c2: [      3 4          ]
 
 	// CachedQuery all entities which have both c1 and c2.
-	ecs.QueryAll(c1, c2).Run(w, func(entities []ecs.Entity, data []any) {
+	w.Query(ecs.QueryAll(c1, c2), func(entities []ecs.Entity, data []any) {
 		// The type of the data's element is `Table[T]`,
 		// which can be converted to `[]T` only after type assertion.
 		fmt.Println(*data[0].(*[]int))
@@ -137,7 +137,7 @@ func ExampleQueryAll_iter() {
 	// c1&c2: [      3 4          ]
 
 	// CachedQuery all entities which have both c1 and c2.
-	for entity, components := range ecs.QueryAll(c1, c2).Iter(w) {
+	for entity, components := range w.Iter(ecs.QueryAll(c1, c2)) {
 		// The type of the data's element is `Table[T]`,
 		// which can be converted to `[]T` only after type assertion.
 		fmt.Println(entity, components)
@@ -178,7 +178,7 @@ func ExampleQueryAny() {
 
 	// CachedQuery all entities which have c1 or c2.
 	var results []string
-	ecs.QueryAny(c1, c2).Run(w, func(entities []ecs.Entity, data []any) {
+	w.Query(ecs.QueryAny(c1, c2), func(entities []ecs.Entity, data []any) {
 		// The type of the data's element is `Table[T]`,
 		// which can be converted to `[]T` only after type assertion.
 		var sb strings.Builder
@@ -231,7 +231,7 @@ func ExampleQueryAny_iter() {
 
 	// CachedQuery all entities which have c1 or c2.
 	var results []string
-	for entity, data := range ecs.QueryAny(c1, c2).Iter(w) {
+	for entity, data := range w.Iter(ecs.QueryAny(c1, c2)) {
 		// The type of the data's element is `Table[T]`,
 		// which can be converted to `[]T` only after type assertion.
 		results = append(results, fmt.Sprintf("e%v: [c1: %v c2: %v]", entity, data[0], data[1]))
@@ -264,7 +264,7 @@ func ExampleQueryAny_cache_iter() {
 	c2 := ecs.NewComponent(w)
 
 	// Cache query
-	query := ecs.QueryAny(c1, c2).Cache(w)
+	query := w.Cache(ecs.QueryAny(c1, c2))
 
 	// Add Components to entities.
 	for i, e := range entities[:5] {

@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"sort"
 	"unsafe"
+	"weak"
 )
 
 type (
@@ -44,7 +45,7 @@ type (
 		// For high performance, we cache the queries.
 		// But these caches will get outdated when new archetypes are created.
 		// We register all queries created here, and update them when new archetypes are created.
-		Queries Table[*CachedQuery]
+		Queries Table[weak.Pointer[CachedQuery]]
 	}
 
 	// An Entity is a unique thing in the world, and is represented by a 64-bit id.
@@ -173,9 +174,18 @@ func newArchetype(w *World, t Types, hash uint64) (a *Archetype) {
 	w.Archetypes[hash] = a
 
 	// update queries
-	for _, q := range w.Queries {
-		q.update(w, a)
+	var deleteList []int
+	for i, q := range w.Queries {
+		if q := q.Value(); q != nil {
+			q.update(w, a)
+		} else {
+			deleteList = append(deleteList, i)
+		}
 	}
+	for _, i := range deleteList {
+		w.Queries.swapDelete(i)
+	}
+
 	return
 }
 
