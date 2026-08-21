@@ -13,12 +13,12 @@ func TestFilter_Run(t *testing.T) {
 	// Create 10 entities.
 	var entities [10]Entity
 	for i := range entities {
-		entities[i] = NewEntity(w)
+		entities[i] = w.NewEntity()
 	}
 
 	// Create 2 Components.
-	c1 := NewComponent(w)
-	c2 := NewComponent(w)
+	c1 := w.NewComponent()
+	c2 := w.NewComponent()
 
 	// Add Components to entities.
 	for i, e := range entities[:5] {
@@ -79,7 +79,7 @@ func TestFilter_Run(t *testing.T) {
 	wants = [][]Entity{{entities[0], entities[1], entities[2], entities[3], entities[4], entities[6]}, {entities[4], entities[5], entities[6]}, {entities[0], entities[1], entities[2], entities[3], entities[4], entities[5], entities[6]}}
 	t.Run("Any", testAny)
 
-	c3 := NewComponent(w)
+	c3 := w.NewComponent()
 	for i, e := range entities[5:8] {
 		w.SetComp(e, c3, i+5)
 	}
@@ -99,14 +99,14 @@ func TestFilter_Cache(t *testing.T) {
 	w := NewWorld()
 	var entities [10]Entity
 	for i := range entities {
-		entities[i] = NewEntity(w)
+		entities[i] = w.NewEntity()
 	}
 
-	c1 := NewComponent(w)
+	c1 := w.NewComponent()
 	for i, e := range entities[:5] {
 		w.SetComp(e, c1, i)
 	}
-	c2 := NewComponent(w)
+	c2 := w.NewComponent()
 	for i, e := range entities[3:7] {
 		w.SetComp(e, c2, i+3)
 	}
@@ -147,7 +147,7 @@ func TestFilter_Cache(t *testing.T) {
 	judge()
 
 	// Test if the cached query gets up to date when a new archetype is created.
-	c3 := NewComponent(w)
+	c3 := w.NewComponent()
 	for i, e := range entities[5:8] {
 		w.SetComp(e, c3, i+5)
 	}
@@ -170,18 +170,18 @@ func BenchmarkFilter_All(b *testing.B) {
 
 	var components [ComponentCount]Component
 	for i := range components {
-		components[i] = NewComponent(w)
+		components[i] = w.NewComponent()
 	}
 
 	// count of tables before creating entities
 	tableCount := len(w.Archetypes)
 
 	for i := 0; i < EntityCount; i++ {
-		e := NewEntity(w)
+		e := w.NewEntity()
 		coins := rand.Int() // we know len(Components) < bitsOf(int)
 		for i, c := range components {
 			if coins&(1<<i) != 0 {
-				AddComp(w, e, c)
+				w.AddComp(e, c)
 			}
 		}
 	}
@@ -201,7 +201,7 @@ func BenchmarkFilter_All(b *testing.B) {
 				tableMatched++
 			})
 		}
-		b.ReportMetric(float64(b.Elapsed().Nanoseconds()/(tableMatched)), "ns/table")
+		b.ReportMetric(float64(b.Elapsed().Nanoseconds()/tableMatched), "ns/table")
 	})
 	b.Run("cached", func(b *testing.B) {
 		cachedQuery := w.Cache(QueryAll(components[:QueryCount]...))
@@ -213,6 +213,6 @@ func BenchmarkFilter_All(b *testing.B) {
 				tableMatched++
 			})
 		}
-		b.ReportMetric(float64(b.Elapsed().Nanoseconds()/(tableMatched)), "ns/table")
+		b.ReportMetric(float64(b.Elapsed().Nanoseconds()/tableMatched), "ns/table")
 	})
 }

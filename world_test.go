@@ -7,12 +7,12 @@ import (
 
 func TestEntity_basic(t *testing.T) {
 	w := NewWorld()
-	name := NewComponent(w)
-	c1 := NewComponent(w)
-	c2 := NewComponent(w)
-	e1 := NewEntity(w)
-	e2 := NewEntity(w)
-	e3 := NewEntity(w)
+	name := w.NewComponent()
+	c1 := w.NewComponent()
+	c2 := w.NewComponent()
+	e1 := w.NewEntity()
+	e2 := w.NewEntity()
+	e3 := w.NewEntity()
 	w.SetComp(e1, name, "E1")
 	w.SetComp(e2, name, "E2")
 	w.SetComp(e3, name, "E3")
@@ -43,15 +43,15 @@ func TestNewEntity(t *testing.T) {
 	// Test create entity
 	var entities [10]Entity
 	for i := range entities {
-		entities[i] = NewEntity(w)
+		entities[i] = w.NewEntity()
 	}
 
 	// Test recycle ids
 	for i := range entities {
-		DelEntity(w, entities[i])
+		w.DelEntity(entities[i])
 	}
 	for i := range entities {
-		entities[i] = NewEntity(w)
+		entities[i] = w.NewEntity()
 	}
 
 	// We create 10 entities, and delete 10 entities, and then create 10 entities again.
@@ -67,21 +67,21 @@ func TestDelEntity(t *testing.T) {
 
 	var entities [100]Entity
 	for i := range entities {
-		entities[i] = NewEntity(w)
+		entities[i] = w.NewEntity()
 	}
 
 	for i := range entities {
-		DelEntity(w, entities[i])
+		w.DelEntity(entities[i])
 	}
 }
 
 func TestDelComp(t *testing.T) {
 	w := NewWorld()
-	e := NewEntity(w)
+	e := w.NewEntity()
 
 	var components [100]Component
 	for i := range components {
-		components[i] = NewComponent(w)
+		components[i] = w.NewComponent()
 	}
 
 	for j := range components {
@@ -96,7 +96,7 @@ func TestDelComp(t *testing.T) {
 func BenchmarkNewEntity(b *testing.B) {
 	w := NewWorld()
 	for b.Loop() {
-		NewEntity(w)
+		w.NewEntity()
 	}
 }
 
@@ -105,11 +105,11 @@ func BenchmarkAddComp_millionEntities(b *testing.B) {
 		w = NewWorld()
 		entities = make([]Entity, 1_000_000)
 		for i := range entities {
-			entities[i] = NewEntity(w)
+			entities[i] = w.NewEntity()
 		}
 		components = make([]Component, n)
 		for i := range components {
-			components[i] = NewComponent(w)
+			components[i] = w.NewComponent()
 		}
 		return
 	}
@@ -121,7 +121,7 @@ func BenchmarkAddComp_millionEntities(b *testing.B) {
 
 		for i, e := range entities {
 			for c := i; c < b.N+i; c++ {
-				AddComp(w, e, components[c%b.N])
+				w.AddComp(e, components[c%b.N])
 			}
 		}
 	})
@@ -129,16 +129,16 @@ func BenchmarkAddComp_millionEntities(b *testing.B) {
 	b.Run("ByShortcuts", func(b *testing.B) {
 		w, entities, components := prepare(b.N)
 		// create shortcuts
-		tmpEntity := NewEntity(w)
+		tmpEntity := w.NewEntity()
 		for c := 0; c < b.N; c++ {
-			AddComp(w, tmpEntity, components[c])
+			w.AddComp(tmpEntity, components[c])
 		}
 
 		b.ResetTimer()
 
 		for _, e := range entities {
 			for c := 0; c < b.N; c++ {
-				AddComp(w, e, components[c])
+				w.AddComp(e, components[c])
 			}
 		}
 	})

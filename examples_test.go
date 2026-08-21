@@ -16,17 +16,17 @@ func ExampleEntity_basic() {
 
 	w := ecs.NewWorld()
 
-	name := ecs.NewComponent(w)
+	name := w.NewComponent()
 	w.SetComp(ecs.Entity(name), name, "Name")
 
-	position := ecs.NewComponent(w)
+	position := w.NewComponent()
 	w.SetComp(ecs.Entity(position), name, "Position")
 
-	walking := ecs.NewComponent(w)
+	walking := w.NewComponent()
 	w.SetComp(ecs.Entity(walking), name, "Walking")
 
 	// Create an entity with name Bob
-	bob := ecs.NewEntity(w)
+	bob := w.NewEntity()
 	w.SetComp(bob, name, "Bob")
 
 	// The set operation finds or creates a component, and sets it.
@@ -43,7 +43,7 @@ func ExampleEntity_basic() {
 	w.SetComp(bob, position, Position{20, 30})
 
 	// Create another named entity
-	alice := ecs.NewEntity(w)
+	alice := w.NewEntity()
 	w.SetComp(alice, name, "Alice")
 	w.SetComp(alice, position, Position{10, 20})
 	w.SetComp(alice, walking, Walking{})
@@ -75,12 +75,12 @@ func ExampleQueryAll() {
 	// Create 10 entities.
 	var entities [10]ecs.Entity
 	for i := range entities {
-		entities[i] = ecs.NewEntity(w)
+		entities[i] = w.NewEntity()
 	}
 
 	// Create 2 Components.
-	c1 := ecs.NewComponent(w)
-	c2 := ecs.NewComponent(w)
+	c1 := w.NewComponent()
+	c2 := w.NewComponent()
 
 	// Add Components to entities.
 	for i, e := range entities[:5] {
@@ -114,12 +114,12 @@ func ExampleQueryAll_iter() {
 	// Create 10 entities.
 	var entities [10]ecs.Entity
 	for i := range entities {
-		entities[i] = ecs.NewEntity(w)
+		entities[i] = w.NewEntity()
 	}
 
 	// Create 2 Components.
-	c1 := ecs.NewComponent(w)
-	c2 := ecs.NewComponent(w)
+	c1 := w.NewComponent()
+	c2 := w.NewComponent()
 
 	// Add Components to entities.
 	for i, e := range entities[:5] {
@@ -154,12 +154,12 @@ func ExampleQueryAny() {
 	// Create 10 entities.
 	var entities [10]ecs.Entity
 	for i := range entities {
-		entities[i] = ecs.NewEntity(w)
+		entities[i] = w.NewEntity()
 	}
 
 	// Create 2 Components.
-	c1 := ecs.NewComponent(w)
-	c2 := ecs.NewComponent(w)
+	c1 := w.NewComponent()
+	c2 := w.NewComponent()
 
 	// Add Components to entities.
 	for i, e := range entities[:5] {
@@ -207,12 +207,12 @@ func ExampleQueryAny_iter() {
 	// Create 10 entities.
 	var entities [10]ecs.Entity
 	for i := range entities {
-		entities[i] = ecs.NewEntity(w)
+		entities[i] = w.NewEntity()
 	}
 
 	// Create 2 Components.
-	c1 := ecs.NewComponent(w)
-	c2 := ecs.NewComponent(w)
+	c1 := w.NewComponent()
+	c2 := w.NewComponent()
 
 	// Add Components to entities.
 	for i, e := range entities[:5] {
@@ -256,12 +256,12 @@ func ExampleQueryAny_cache_iter() {
 	// Create 10 entities.
 	var entities [10]ecs.Entity
 	for i := range entities {
-		entities[i] = ecs.NewEntity(w)
+		entities[i] = w.NewEntity()
 	}
 
 	// Create 2 Components.
-	c1 := ecs.NewComponent(w)
-	c2 := ecs.NewComponent(w)
+	c1 := w.NewComponent()
+	c2 := w.NewComponent()
 
 	// Cache query
 	query := w.Cache(ecs.QueryAny(c1, c2))

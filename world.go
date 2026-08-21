@@ -116,12 +116,12 @@ func NewWorld() (w *World) {
 		Archetypes: make(map[uint64]*Archetype),
 		Components: make(map[Component]map[*Archetype]int),
 	}
-	w.Zero = newArchetype(w, Types(nil), Types(nil).sortHash(&w.hash))
+	w.Zero = w.newArchetype(Types(nil), Types(nil).sortHash(&w.hash))
 	return
 }
 
 // NewEntity creates a new Entity in the World, without any Components.
-func NewEntity(w *World) (e Entity) {
+func (w *World) NewEntity() (e Entity) {
 	e = Entity(w.get())
 	r := new(EntityRecord)
 	r.AT = w.Zero
@@ -131,7 +131,7 @@ func NewEntity(w *World) (e Entity) {
 	return
 }
 
-func DelEntity(w *World, e Entity) {
+func (w *World) DelEntity(e Entity) {
 	rec := w.Entities[e]
 	rec.AT.entities.swapDelete(rec.Row)
 	rec.AT.records.swapDelete(rec.Row)
@@ -149,15 +149,15 @@ func DelEntity(w *World, e Entity) {
 
 // NewComponent creates a new Component in the World.
 // The data type associated with the Component will be bind when the first data is set.
-func NewComponent(w *World) (c Component) {
-	c = Component(NewEntity(w))
+func (w *World) NewComponent() (c Component) {
+	c = Component(w.NewEntity())
 	w.Components[c] = make(map[*Archetype]int)
 	return
 }
 
 // The hash can be calculated by t.sortHash(&w.hash).
 // We Always calculate it before calling this function, so just pass it in.
-func newArchetype(w *World, t Types, hash uint64) (a *Archetype) {
+func (w *World) newArchetype(t Types, hash uint64) (a *Archetype) {
 	a = &Archetype{
 		Types: t,
 		Comps: make([]Storage, len(t)),
@@ -190,7 +190,7 @@ func newArchetype(w *World, t Types, hash uint64) (a *Archetype) {
 }
 
 // AddComp adds the Component to Entity as a tag, without underlying content
-func AddComp(w *World, e Entity, c Component) {
+func (w *World) AddComp(e Entity, c Component) {
 	rec := w.Entities[e]
 	// If the archetype of e already contains c.
 	// Override the data and return.
@@ -206,7 +206,7 @@ func AddComp(w *World, e Entity, c Component) {
 		newTypes := rec.AT.Types.copyAppend(c, nil)
 		hash := newTypes.sortHash(&w.hash)
 		if target, ok = w.Archetypes[hash]; !ok {
-			target = newArchetype(w, newTypes, hash)
+			target = w.newArchetype(newTypes, hash)
 		}
 		// Save to the shortcuts
 		edge.add = target
@@ -225,7 +225,7 @@ func AddComp(w *World, e Entity, c Component) {
 }
 
 // HasComp reports whether the Entity has the Component.
-func HasComp(w *World, e Entity, c Component) bool {
+func (w *World) HasComp(e Entity, c Component) bool {
 	rec := w.Entities[e]
 	_, ok := w.Components[c][rec.AT]
 	return ok
@@ -254,7 +254,7 @@ func (w *World) SetComp[C any](e Entity, c Component, data C) {
 		newTypes := rec.AT.Types.copyAppend(c, reflect.TypeFor[*Table[C]]())
 		hash := newTypes.sortHash(&w.hash)
 		if target, ok = w.Archetypes[hash]; !ok {
-			target = newArchetype(w, newTypes, hash)
+			target = w.newArchetype(newTypes, hash)
 		}
 		// Save to the shortcuts
 		edge.add = target
@@ -289,7 +289,7 @@ func (w *World) DelComp(e Entity, c Component) {
 		newTypes := rec.AT.Types.copyDelete(col)
 		hash := newTypes.sortHash(&w.hash)
 		if target, ok = w.Archetypes[hash]; !ok {
-			target = newArchetype(w, newTypes, hash)
+			target = w.newArchetype(newTypes, hash)
 		}
 		// Save to the shortcuts
 		edge.del = target
