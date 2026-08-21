@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func Type(w *World, e Entity, nameComp Component) string {
+func (w *World) Type(e Entity, nameComp Component) string {
 	var sb strings.Builder
 	rec := w.Entities[e]
 	compNames := make([]string, len(rec.AT.Types))

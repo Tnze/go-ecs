@@ -50,7 +50,7 @@ func ExampleEntity_basic() {
 
 	// Print all the Components the entity has. This will output:
 	//    Position, Walking, (Identifier,Name)
-	fmt.Printf("[%s]\n", ecs.Type(w, alice, name))
+	fmt.Printf("[%s]\n", w.Type(alice, name))
 	// Iterate all entities with Position
 	w.Query(ecs.QueryAll(position), func(entities []ecs.Entity, data []any) {
 		p := *data[0].(*[]Position)
