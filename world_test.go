@@ -13,25 +13,25 @@ func TestEntity_basic(t *testing.T) {
 	e1 := NewEntity(w)
 	e2 := NewEntity(w)
 	e3 := NewEntity(w)
-	SetComp(w, e1, name, "E1")
-	SetComp(w, e2, name, "E2")
-	SetComp(w, e3, name, "E3")
-	SetComp(w, e1, c1, "E1-C1")
-	SetComp(w, e2, c1, "E2-C1")
-	SetComp(w, e2, c2, "E2-C2")
-	SetComp(w, e3, c2, "E2-C2")
+	w.SetComp(e1, name, "E1")
+	w.SetComp(e2, name, "E2")
+	w.SetComp(e3, name, "E3")
+	w.SetComp(e1, c1, "E1-C1")
+	w.SetComp(e2, c1, "E2-C1")
+	w.SetComp(e2, c2, "E2-C2")
+	w.SetComp(e3, c2, "E2-C2")
 
 	QueryAll(c1).Run(w, func(entities []Entity, data []any) {
 		s := *data[0].(*[]string)
 		for i, e := range entities {
-			entityName := GetComp[string](w, e, name)
+			entityName := w.GetComp[string](e, name)
 			fmt.Printf("%s: %s\n", *entityName, s[i])
 		}
 	})
 	QueryAll(c2).Run(w, func(entities []Entity, data []any) {
 		s := *data[0].(*[]string)
 		for i, e := range entities {
-			entityName := GetComp[string](w, e, name)
+			entityName := w.GetComp[string](e, name)
 			fmt.Printf("%s: %s\n", *entityName, s[i])
 		}
 	})
@@ -85,11 +85,11 @@ func TestDelComp(t *testing.T) {
 	}
 
 	for j := range components {
-		SetComp(w, e, components[j], j)
+		w.SetComp(e, components[j], j)
 	}
 
 	for j := range components {
-		DelComp(w, e, components[j])
+		w.DelComp(e, components[j])
 	}
 }
 

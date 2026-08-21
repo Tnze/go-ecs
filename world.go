@@ -227,7 +227,7 @@ func HasComp(w *World, e Entity, c Component) bool {
 // If the Entity doesn't have the Component, the Component will be added.
 //
 // This function panics if the type of data doesn't match others of the same Component.
-func SetComp[C any](w *World, e Entity, c Component, data C) {
+func (w *World) SetComp[C any](e Entity, c Component, data C) {
 	rec := w.Entities[e]
 	// If the archetype of e already contains c.
 	// Override the data and return.
@@ -265,7 +265,7 @@ func SetComp[C any](w *World, e Entity, c Component, data C) {
 
 // DelComp removes the Component of an Entity.
 // If the Entity doesn't have the Component, nothing will happen.
-func DelComp(w *World, e Entity, c Component) {
+func (w *World) DelComp(e Entity, c Component) {
 	rec := w.Entities[e]
 	col, ok := w.Components[c][rec.AT]
 	if !ok {
@@ -329,7 +329,7 @@ func moveEntity(e Entity, dst *Archetype, srcRec *EntityRecord, list Types) (new
 
 // GetComp gets the data of a Component of an Entity.
 // If the Entity doesn't have the Component, nil will be returned.
-func GetComp[C any](w *World, e Entity, c Component) (data *C) {
+func (w *World) GetComp[C any](e Entity, c Component) (data *C) {
 	rec := w.Entities[e]
 	if column, ok := w.Components[c][rec.AT]; ok {
 		return &(*rec.AT.Comps[column].(*Table[C]))[rec.Row]

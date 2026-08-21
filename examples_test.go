@@ -17,36 +17,36 @@ func ExampleEntity_basic() {
 	w := ecs.NewWorld()
 
 	name := ecs.NewComponent(w)
-	ecs.SetComp(w, ecs.Entity(name), name, "Name")
+	w.SetComp(ecs.Entity(name), name, "Name")
 
 	position := ecs.NewComponent(w)
-	ecs.SetComp(w, ecs.Entity(position), name, "Position")
+	w.SetComp(ecs.Entity(position), name, "Position")
 
 	walking := ecs.NewComponent(w)
-	ecs.SetComp(w, ecs.Entity(walking), name, "Walking")
+	w.SetComp(ecs.Entity(walking), name, "Walking")
 
 	// Create an entity with name Bob
 	bob := ecs.NewEntity(w)
-	ecs.SetComp(w, bob, name, "Bob")
+	w.SetComp(bob, name, "Bob")
 
 	// The set operation finds or creates a component, and sets it.
-	ecs.SetComp(w, bob, position, Position{10, 20})
+	w.SetComp(bob, position, Position{10, 20})
 	// The add operation adds a component without setting a value. This is
 	// useful for tags, or when adding a component with its default value.
-	ecs.SetComp(w, bob, walking, Walking{})
+	w.SetComp(bob, walking, Walking{})
 
 	// Get the value for the Position component
-	pos := ecs.GetComp[Position](w, bob, position)
+	pos := w.GetComp[Position](bob, position)
 	fmt.Printf("{%f, %f}\n", pos.x, pos.y)
 
 	// Overwrite the value of the Position component
-	ecs.SetComp(w, bob, position, Position{20, 30})
+	w.SetComp(bob, position, Position{20, 30})
 
 	// Create another named entity
 	alice := ecs.NewEntity(w)
-	ecs.SetComp(w, alice, name, "Alice")
-	ecs.SetComp(w, alice, position, Position{10, 20})
-	ecs.SetComp(w, alice, walking, Walking{})
+	w.SetComp(alice, name, "Alice")
+	w.SetComp(alice, position, Position{10, 20})
+	w.SetComp(alice, walking, Walking{})
 
 	// Print all the Components the entity has. This will output:
 	//    Position, Walking, (Identifier,Name)
@@ -55,12 +55,12 @@ func ExampleEntity_basic() {
 	ecs.QueryAll(position).Run(w, func(entities []ecs.Entity, data []any) {
 		p := *data[0].(*[]Position)
 		for i, e := range entities {
-			entityName := ecs.GetComp[string](w, e, name)
+			entityName := w.GetComp[string](e, name)
 			fmt.Printf("%s: {%f, %f}\n", *entityName, p[i].x, p[i].y)
 		}
 	})
 	// DelComp tag
-	ecs.DelComp(w, alice, walking)
+	w.DelComp(alice, walking)
 
 	// Output:
 	// {10.000000, 20.000000}
@@ -84,10 +84,10 @@ func ExampleQueryAll() {
 
 	// Add Components to entities.
 	for i, e := range entities[:5] {
-		ecs.SetComp(w, e, c1, i)
+		w.SetComp(e, c1, i)
 	}
 	for i, e := range entities[3:7] {
-		ecs.SetComp(w, e, c2, i+3)
+		w.SetComp(e, c2, i+3)
 	}
 
 	// Current layout:
@@ -123,10 +123,10 @@ func ExampleQueryAll_iter() {
 
 	// Add Components to entities.
 	for i, e := range entities[:5] {
-		ecs.SetComp(w, e, c1, i)
+		w.SetComp(e, c1, i)
 	}
 	for i, e := range entities[3:7] {
-		ecs.SetComp(w, e, c2, i+3)
+		w.SetComp(e, c2, i+3)
 	}
 
 	// Current layout:
@@ -163,10 +163,10 @@ func ExampleQueryAny() {
 
 	// Add Components to entities.
 	for i, e := range entities[:5] {
-		ecs.SetComp(w, e, c1, int32(i))
+		w.SetComp(e, c1, int32(i))
 	}
 	for i, e := range entities[3:7] {
-		ecs.SetComp(w, e, c2, int64(i+3))
+		w.SetComp(e, c2, int64(i+3))
 	}
 
 	// Current layout:
@@ -216,10 +216,10 @@ func ExampleQueryAny_iter() {
 
 	// Add Components to entities.
 	for i, e := range entities[:5] {
-		ecs.SetComp(w, e, c1, int32(i))
+		w.SetComp(e, c1, int32(i))
 	}
 	for i, e := range entities[3:7] {
-		ecs.SetComp(w, e, c2, int64(i+3))
+		w.SetComp(e, c2, int64(i+3))
 	}
 
 	// Current layout:
@@ -268,10 +268,10 @@ func ExampleQueryAny_cache_iter() {
 
 	// Add Components to entities.
 	for i, e := range entities[:5] {
-		ecs.SetComp(w, e, c1, int32(i))
+		w.SetComp(e, c1, int32(i))
 	}
 	for i, e := range entities[3:7] {
-		ecs.SetComp(w, e, c2, int64(i+3))
+		w.SetComp(e, c2, int64(i+3))
 	}
 
 	// Current layout:

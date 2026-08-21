@@ -22,10 +22,10 @@ func TestFilter_Run(t *testing.T) {
 
 	// Add Components to entities.
 	for i, e := range entities[:5] {
-		SetComp(w, e, c1, i)
+		w.SetComp(e, c1, i)
 	}
 	for i, e := range entities[3:7] {
-		SetComp(w, e, c2, i+3)
+		w.SetComp(e, c2, i+3)
 	}
 
 	// id: [0 1 2 3 4 5 6 7 8 9]
@@ -67,8 +67,8 @@ func TestFilter_Run(t *testing.T) {
 	t.Run("Any", testAny)
 
 	// change the entities
-	SetComp(w, entities[6], c1, 6)
-	DelComp(w, entities[3], c2)
+	w.SetComp(entities[6], c1, 6)
+	w.DelComp(entities[3], c2)
 
 	// id: [0 1 2 3 4 5 6 7 8 9]
 	// c1: [0 1 2 3 4   6      ]
@@ -81,7 +81,7 @@ func TestFilter_Run(t *testing.T) {
 
 	c3 := NewComponent(w)
 	for i, e := range entities[5:8] {
-		SetComp(w, e, c3, i+5)
+		w.SetComp(e, c3, i+5)
 	}
 
 	// id: [0 1 2 3 4 5 6 7 8 9]
@@ -104,11 +104,11 @@ func TestFilter_Cache(t *testing.T) {
 
 	c1 := NewComponent(w)
 	for i, e := range entities[:5] {
-		SetComp(w, e, c1, i)
+		w.SetComp(e, c1, i)
 	}
 	c2 := NewComponent(w)
 	for i, e := range entities[3:7] {
-		SetComp(w, e, c2, i+3)
+		w.SetComp(e, c2, i+3)
 	}
 
 	// id: [0 1 2 3 4 5 6 7 8 9]
@@ -136,8 +136,8 @@ func TestFilter_Cache(t *testing.T) {
 	judge()
 
 	// Test if the cached query gets up to date when entities are moved
-	SetComp(w, entities[6], c1, 6)
-	DelComp(w, entities[3], c2)
+	w.SetComp(entities[6], c1, 6)
+	w.DelComp(entities[3], c2)
 
 	// id: [0 1 2 3 4 5 6 7 8 9]
 	// c1: [0 1 2 3 4   6      ]
@@ -149,7 +149,7 @@ func TestFilter_Cache(t *testing.T) {
 	// Test if the cached query gets up to date when a new archetype is created.
 	c3 := NewComponent(w)
 	for i, e := range entities[5:8] {
-		SetComp(w, e, c3, i+5)
+		w.SetComp(e, c3, i+5)
 	}
 
 	// id: [0 1 2 3 4 5 6 7 8 9]
