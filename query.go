@@ -8,6 +8,39 @@ import (
 // Filter determines whether an archetype is of interest and which specific columns it contains.
 type Filter func(*World, *Archetype, *[]int) bool
 
+func QueryAll(comps ...Component) Filter {
+	return func(w *World, a *Archetype, out *[]int) bool {
+		for _, c := range comps {
+			col, ok := w.Components[c][a]
+			if !ok {
+				return false
+			}
+			// Empty components are excluded from the output.
+			if col != -1 {
+				*out = append(*out, col)
+			}
+		}
+		return true
+	}
+}
+
+func QueryAny(comps ...Component) Filter {
+	return func(w *World, a *Archetype, out *[]int) (pass bool) {
+		for _, c := range comps {
+			if col, ok := w.Components[c][a]; ok {
+				// Empty components are excluded from the output.
+				if col != -1 {
+					*out = append(*out, col)
+				}
+				pass = true
+			} else {
+				*out = append(*out, -1)
+			}
+		}
+		return
+	}
+}
+
 func (w *World) Query(f Filter, h func(entities []Entity, data []any)) {
 	var columns []int
 	var data []any
@@ -53,39 +86,6 @@ func (w *World) Iter(f Filter) iter.Seq2[Entity, []any] {
 				}
 			}
 		}
-	}
-}
-
-func QueryAll(comps ...Component) Filter {
-	return func(w *World, a *Archetype, out *[]int) bool {
-		for _, c := range comps {
-			col, ok := w.Components[c][a]
-			if !ok {
-				return false
-			}
-			// Empty components are excluded from the output.
-			if col != -1 {
-				*out = append(*out, col)
-			}
-		}
-		return true
-	}
-}
-
-func QueryAny(comps ...Component) Filter {
-	return func(w *World, a *Archetype, out *[]int) (pass bool) {
-		for _, c := range comps {
-			if col, ok := w.Components[c][a]; ok {
-				// Empty components are excluded from the output.
-				if col != -1 {
-					*out = append(*out, col)
-				}
-				pass = true
-			} else {
-				*out = append(*out, -1)
-			}
-		}
-		return
 	}
 }
 
@@ -139,7 +139,7 @@ func (q *CachedQuery) Run(h func(entities []Entity, data []any)) {
 	q.data = data
 }
 
-func (q *CachedQuery) Iter(yield func(enitty Entity, data []any) bool) {
+func (q *CachedQuery) Iter(yield func(entity Entity, data []any) bool) {
 	data := q.data[:0]
 	for j, a := range q.tables {
 		for i, entity := range a.entities {

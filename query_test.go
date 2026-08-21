@@ -188,7 +188,7 @@ func BenchmarkFilter_All(b *testing.B) {
 	b.Logf("entities created: %d (w/%d randomized Components)", EntityCount, ComponentCount)
 	b.Logf("tables created  : %d", len(w.Archetypes)-tableCount)
 	b.Logf("setup time      : %v", b.Elapsed())
-	b.Logf("queriying for %d Components", QueryCount)
+	b.Logf("querying for %d Components", QueryCount)
 
 	rand.Shuffle(len(components), func(i, j int) {
 		components[i], components[j] = components[j], components[i]
