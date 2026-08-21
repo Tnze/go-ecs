@@ -95,7 +95,7 @@ func TestDelComp(t *testing.T) {
 
 func BenchmarkNewEntity(b *testing.B) {
 	w := NewWorld()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		NewEntity(w)
 	}
 }

@@ -46,7 +46,9 @@ func (f Filter) Iter(w *World) iter.Seq2[Entity, []any] {
 						data[j] = nil
 					}
 				}
-				yield(entity, data)
+				if !yield(entity, data) {
+					return
+				}
 			}
 		}
 	}
@@ -148,7 +150,9 @@ func (q *CachedQuery) Iter(yield func(enitty Entity, data []any) bool) {
 					data = append(data, nil)
 				}
 			}
-			yield(entity, data)
+			if !yield(entity, data) {
+				return
+			}
 		}
 	}
 	clear(data)
