@@ -15,7 +15,7 @@ func QueryAll(comps ...Component) Filter {
 			if !ok {
 				return false
 			}
-			// Empty components are excluded from the output.
+			// Empty components (tags) are excluded from the output.
 			if col != -1 {
 				*out = append(*out, col)
 			}
@@ -28,7 +28,7 @@ func QueryAny(comps ...Component) Filter {
 	return func(w *World, a *Archetype, out *[]int) (pass bool) {
 		for _, c := range comps {
 			if col, ok := w.Components[c][a]; ok {
-				// Empty components are excluded from the output.
+				// Empty components (tags) are excluded from the output.
 				if col != -1 {
 					*out = append(*out, col)
 				}
