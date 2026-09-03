@@ -61,8 +61,8 @@ func (w *World) Query(f Filter, h func(entities []Entity, data []any)) {
 	}
 }
 
-func (w *World) Iter(f Filter) iter.Seq2[Entity, []any] {
-	return func(yield func(Entity, []any) bool) {
+func (w *World) Iter(f Filter) iter.Seq2[[]Entity, []any] {
+	return func(yield func([]Entity, []any) bool) {
 		var columns []int
 		var data []any
 		for _, a := range w.Archetypes {
@@ -70,20 +70,16 @@ func (w *World) Iter(f Filter) iter.Seq2[Entity, []any] {
 			if !f(w, a, &columns) {
 				continue
 			}
-			if totalCol := len(columns); len(data) != totalCol {
-				data = make([]any, totalCol)
+			data = data[:0]
+			for _, col := range columns {
+				if col != -1 {
+					data = append(data, a.Comps[col].toSlice())
+				} else {
+					data = append(data, nil)
+				}
 			}
-			for i, entity := range a.entities {
-				for j, col := range columns {
-					if col != -1 {
-						data[j] = a.Comps[col].Get(i)
-					} else {
-						data[j] = nil
-					}
-				}
-				if !yield(entity, data) {
-					return
-				}
+			if !yield(a.entities, data) {
+				return
 			}
 		}
 	}
@@ -139,25 +135,31 @@ func (q *CachedQuery) Run(h func(entities []Entity, data []any)) {
 	q.data = data
 }
 
-func (q *CachedQuery) Iter(yield func(entity Entity, data []any) bool) {
+func (q *CachedQuery) Iter(yield func(entity []Entity, data []any) bool) {
 	data := q.data[:0]
 	for j, a := range q.tables {
-		for i, entity := range a.entities {
-			data = data[:0]
-			for _, col := range q.columns[j] {
-				if col != -1 {
-					data = append(data, a.Comps[col].Get(i))
-				} else {
-					data = append(data, nil)
-				}
+		data = data[:0]
+		for _, col := range q.columns[j] {
+			if col != -1 {
+				data = append(data, a.Comps[col].toSlice())
+			} else {
+				data = append(data, nil)
 			}
-			if !yield(entity, data) {
-				return
-			}
+		}
+		if !yield(a.entities, data) {
+			return
 		}
 	}
 	clear(data)
 	q.data = data
+}
+
+func (q *CachedQuery) Len() int {
+	var length int
+	for _, a := range q.tables {
+		length += len(a.entities)
+	}
+	return length
 }
 
 func (q *CachedQuery) update(w *World, a *Archetype) {
